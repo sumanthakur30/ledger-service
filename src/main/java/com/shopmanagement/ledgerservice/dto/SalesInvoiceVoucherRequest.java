@@ -11,6 +11,8 @@ public class SalesInvoiceVoucherRequest {
     private Double discountAmount;
     private Double taxAmount;
     private Double totalAmount;
+    /** Optional COGS (Σ qty × batch purchase price) → Dr 5300 / Cr 1200. */
+    private Double cogsAmount;
     private String narration;
 
     public Long getInvoiceId() { return invoiceId; }
@@ -27,6 +29,8 @@ public class SalesInvoiceVoucherRequest {
     public void setTaxAmount(Double taxAmount) { this.taxAmount = taxAmount; }
     public Double getTotalAmount() { return totalAmount; }
     public void setTotalAmount(Double totalAmount) { this.totalAmount = totalAmount; }
+    public Double getCogsAmount() { return cogsAmount; }
+    public void setCogsAmount(Double cogsAmount) { this.cogsAmount = cogsAmount; }
     public String getNarration() { return narration; }
     public void setNarration(String narration) { this.narration = narration; }
 }

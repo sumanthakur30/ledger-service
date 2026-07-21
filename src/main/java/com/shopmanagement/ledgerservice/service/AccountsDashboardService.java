@@ -64,6 +64,8 @@ public class AccountsDashboardService {
 
         List<TrialBalanceRow> tb = voucherService.trialBalance(toDate);
         double debtors = 0;
+        double creditors = 0;
+        double inventory = 0;
         double sales = 0;
         double gst = 0;
         List<TrialBalanceRow> highlight = new ArrayList<>();
@@ -73,6 +75,10 @@ public class AccountsDashboardService {
             double netCr = Math.max(0, round2(row.credit() - row.debit()));
             if ("1100".equals(code)) {
                 debtors = netDr;
+            } else if ("2000".equals(code)) {
+                creditors = netCr;
+            } else if ("1200".equals(code)) {
+                inventory = netDr;
             } else if ("4000".equals(code)) {
                 sales = netCr;
             } else if ("2100".equals(code)) {
@@ -106,6 +112,8 @@ public class AccountsDashboardService {
                 round2(periodDebit),
                 round2(periodCredit),
                 round2(debtors),
+                round2(creditors),
+                round2(inventory),
                 round2(sales),
                 round2(gst),
                 highlight,

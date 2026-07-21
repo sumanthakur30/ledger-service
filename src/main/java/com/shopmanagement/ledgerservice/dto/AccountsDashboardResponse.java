@@ -10,6 +10,8 @@ public record AccountsDashboardResponse(
         double periodDebitTotal,
         double periodCreditTotal,
         double debtorsBalance,
+        double creditorsBalance,
+        double inventoryBalance,
         double salesCreditBalance,
         double gstPayableBalance,
         List<TrialBalanceRow> trialBalanceHighlight,

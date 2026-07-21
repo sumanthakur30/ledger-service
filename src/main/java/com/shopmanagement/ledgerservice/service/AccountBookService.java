@@ -96,6 +96,7 @@ public class AccountBookService {
                     narr = voucher.getNarration();
                 }
                 lines.add(new AccountBookLine(
+                        line.getId(),
                         voucher.getId(),
                         voucher.getVoucherNumber(),
                         voucher.getVoucherDate(),
@@ -105,7 +106,8 @@ public class AccountBookService {
                         voucher.getSourceId(),
                         debit,
                         credit,
-                        running));
+                        running,
+                        Boolean.TRUE.equals(line.getReconciled())));
             }
         }
 

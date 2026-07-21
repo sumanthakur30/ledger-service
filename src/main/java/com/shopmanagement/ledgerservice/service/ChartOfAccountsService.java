@@ -25,7 +25,9 @@ public class ChartOfAccountsService {
             {"4000", "Sales", "INCOME"},
             {"5000", "Purchase", "EXPENSE"},
             {"5100", "Freight / Landed charges", "EXPENSE"},
-            {"5200", "Discount allowed", "EXPENSE"}
+            {"5200", "Discount allowed", "EXPENSE"},
+            {"5300", "Cost of goods sold", "EXPENSE"},
+            {"5400", "Stock write-off / Dump-Brk-Exp", "EXPENSE"}
     };
 
     private final LedgerAccountRepository accountRepository;

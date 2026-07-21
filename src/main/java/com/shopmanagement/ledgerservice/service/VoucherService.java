@@ -26,10 +26,15 @@ public class VoucherService {
 
     private final LedgerVoucherRepository voucherRepository;
     private final LedgerAccountRepository accountRepository;
+    private final PeriodLockService periodLockService;
 
-    public VoucherService(LedgerVoucherRepository voucherRepository, LedgerAccountRepository accountRepository) {
+    public VoucherService(
+            LedgerVoucherRepository voucherRepository,
+            LedgerAccountRepository accountRepository,
+            PeriodLockService periodLockService) {
         this.voucherRepository = voucherRepository;
         this.accountRepository = accountRepository;
+        this.periodLockService = periodLockService;
     }
 
     @Transactional(readOnly = true)
@@ -63,6 +68,7 @@ public class VoucherService {
         voucher.setShopId(shopId);
         voucher.setVoucherNumber("JV-" + System.currentTimeMillis());
         voucher.setVoucherDate(request.getVoucherDate() != null ? request.getVoucherDate() : LocalDate.now());
+        periodLockService.assertOpen(voucher.getVoucherDate());
         voucher.setVoucherType(
                 blank(request.getVoucherType()) ? "JOURNAL" : request.getVoucherType().trim().toUpperCase(Locale.ROOT));
         voucher.setStatus("DRAFT");
@@ -122,6 +128,7 @@ public class VoucherService {
         if (Math.abs(safe(voucher.getTotalDebit()) - safe(voucher.getTotalCredit())) > 0.009) {
             throw new IllegalArgumentException("Cannot post unbalanced voucher");
         }
+        periodLockService.assertOpen(voucher.getVoucherDate());
         voucher.setStatus("POSTED");
         voucher.setPostedAt(LocalDateTime.now());
         return voucherRepository.save(voucher);
@@ -129,18 +136,29 @@ public class VoucherService {
 
     @Transactional(readOnly = true)
     public List<TrialBalanceRow> trialBalance(LocalDate asOf) {
+        LocalDate cutoff = asOf != null ? asOf : LocalDate.now();
+        return accumulatePosted(LocalDate.of(2000, 1, 1), cutoff);
+    }
+
+    /** Posted voucher debit/credit totals for a closed date range (inclusive). */
+    @Transactional(readOnly = true)
+    public List<TrialBalanceRow> periodMovement(LocalDate from, LocalDate to) {
+        LocalDate fromDate = from != null ? from : LocalDate.now().withDayOfMonth(1);
+        LocalDate toDate = to != null ? to : LocalDate.now();
+        return accumulatePosted(fromDate, toDate);
+    }
+
+    private List<TrialBalanceRow> accumulatePosted(LocalDate fromDate, LocalDate toDate) {
         requireManageOrders();
         Long tenantId = requireTenantId();
         String shopId = requireShopId();
-        LocalDate cutoff = asOf != null ? asOf : LocalDate.now();
         List<LedgerAccount> accounts = accountRepository.findByTenantIdAndShopIdOrderByCodeAsc(tenantId, shopId);
         Map<Long, TrialBalanceRow> byId = new LinkedHashMap<>();
         for (LedgerAccount account : accounts) {
             byId.put(account.getId(), new TrialBalanceRow(
                     account.getId(), account.getCode(), account.getName(), account.getAccountType(), 0, 0));
         }
-        List<LedgerVoucher> vouchers = voucherRepository.search(
-                tenantId, shopId, LocalDate.of(2000, 1, 1), cutoff, "");
+        List<LedgerVoucher> vouchers = voucherRepository.search(tenantId, shopId, fromDate, toDate, "");
         for (LedgerVoucher voucher : vouchers) {
             if (!"POSTED".equalsIgnoreCase(voucher.getStatus())) {
                 continue;

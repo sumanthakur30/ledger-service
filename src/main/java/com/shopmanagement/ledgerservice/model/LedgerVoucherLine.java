@@ -41,6 +41,12 @@ public class LedgerVoucherLine {
     @Column(name = "line_no", nullable = false)
     private int lineNo = 1;
 
+    @Column(nullable = false)
+    private Boolean reconciled = Boolean.FALSE;
+
+    @Column(name = "reconciled_at")
+    private java.time.LocalDateTime reconciledAt;
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
     public LedgerVoucher getVoucher() { return voucher; }
@@ -55,6 +61,10 @@ public class LedgerVoucherLine {
     public void setLineNarration(String lineNarration) { this.lineNarration = lineNarration; }
     public int getLineNo() { return lineNo; }
     public void setLineNo(int lineNo) { this.lineNo = lineNo; }
+    public Boolean getReconciled() { return reconciled; }
+    public void setReconciled(Boolean reconciled) { this.reconciled = reconciled; }
+    public java.time.LocalDateTime getReconciledAt() { return reconciledAt; }
+    public void setReconciledAt(java.time.LocalDateTime reconciledAt) { this.reconciledAt = reconciledAt; }
 
     @JsonProperty("voucherId")
     public Long exposeVoucherId() {
