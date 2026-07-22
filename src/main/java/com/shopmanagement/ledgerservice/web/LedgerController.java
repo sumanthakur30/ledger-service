@@ -23,6 +23,7 @@ import com.shopmanagement.ledgerservice.dto.BalanceSheetResponse;
 import com.shopmanagement.ledgerservice.dto.CollectionReceiptVoucherRequest;
 import com.shopmanagement.ledgerservice.dto.CreateAccountRequest;
 import com.shopmanagement.ledgerservice.dto.CreateVoucherRequest;
+import com.shopmanagement.ledgerservice.dto.CreditInterestVoucherRequest;
 import com.shopmanagement.ledgerservice.dto.GoodsReceiptVoucherRequest;
 import com.shopmanagement.ledgerservice.dto.ProfitAndLossResponse;
 import com.shopmanagement.ledgerservice.dto.SalesInvoiceVoucherRequest;
@@ -38,6 +39,7 @@ import com.shopmanagement.ledgerservice.service.AccountsDashboardService;
 import com.shopmanagement.ledgerservice.service.BankReconciliationService;
 import com.shopmanagement.ledgerservice.service.ChartOfAccountsService;
 import com.shopmanagement.ledgerservice.service.CollectionReceiptVoucherService;
+import com.shopmanagement.ledgerservice.service.CreditInterestVoucherService;
 import com.shopmanagement.ledgerservice.service.FinalAccountsService;
 import com.shopmanagement.ledgerservice.service.GoodsReceiptVoucherService;
 import com.shopmanagement.ledgerservice.service.PeriodLockService;
@@ -61,6 +63,7 @@ public class LedgerController {
     private final SalesInvoiceVoucherService salesInvoiceVoucherService;
     private final SalesReturnVoucherService salesReturnVoucherService;
     private final CollectionReceiptVoucherService collectionReceiptVoucherService;
+    private final CreditInterestVoucherService creditInterestVoucherService;
     private final GoodsReceiptVoucherService goodsReceiptVoucherService;
     private final SupplierPaymentVoucherService supplierPaymentVoucherService;
     private final AccountBookService accountBookService;
@@ -76,6 +79,7 @@ public class LedgerController {
             SalesInvoiceVoucherService salesInvoiceVoucherService,
             SalesReturnVoucherService salesReturnVoucherService,
             CollectionReceiptVoucherService collectionReceiptVoucherService,
+            CreditInterestVoucherService creditInterestVoucherService,
             GoodsReceiptVoucherService goodsReceiptVoucherService,
             SupplierPaymentVoucherService supplierPaymentVoucherService,
             AccountBookService accountBookService,
@@ -89,6 +93,7 @@ public class LedgerController {
         this.salesInvoiceVoucherService = salesInvoiceVoucherService;
         this.salesReturnVoucherService = salesReturnVoucherService;
         this.collectionReceiptVoucherService = collectionReceiptVoucherService;
+        this.creditInterestVoucherService = creditInterestVoucherService;
         this.goodsReceiptVoucherService = goodsReceiptVoucherService;
         this.supplierPaymentVoucherService = supplierPaymentVoucherService;
         this.accountBookService = accountBookService;
@@ -166,6 +171,13 @@ public class LedgerController {
     @ResponseStatus(HttpStatus.CREATED)
     public LedgerVoucher fromCollection(@RequestBody CollectionReceiptVoucherRequest request) {
         return collectionReceiptVoucherService.postFromCollection(request);
+    }
+
+    /** Auto-post overdue credit interest → Debtors Dr + Interest Income Cr. */
+    @PostMapping("/vouchers/from-credit-interest")
+    @ResponseStatus(HttpStatus.CREATED)
+    public LedgerVoucher fromCreditInterest(@RequestBody CreditInterestVoucherRequest request) {
+        return creditInterestVoucherService.postFromCreditInterest(request);
     }
 
     /** Auto-post trade GRN → Stock Dr + Creditors Cr (idempotent by goods receipt id). */

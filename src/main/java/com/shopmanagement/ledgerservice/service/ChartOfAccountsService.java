@@ -23,6 +23,7 @@ public class ChartOfAccountsService {
             {"2200", "GST Input Credit", "ASSET"},
             {"3000", "Capital", "EQUITY"},
             {"4000", "Sales", "INCOME"},
+            {"4100", "Interest Income", "INCOME"},
             {"5000", "Purchase", "EXPENSE"},
             {"5100", "Freight / Landed charges", "EXPENSE"},
             {"5200", "Discount allowed", "EXPENSE"},
