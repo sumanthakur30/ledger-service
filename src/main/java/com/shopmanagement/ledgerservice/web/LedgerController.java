@@ -126,8 +126,9 @@ public class LedgerController {
     public List<LedgerVoucher> listVouchers(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
-            @RequestParam(required = false) String type) {
-        return voucherService.list(from, to, type);
+            @RequestParam(required = false) String type,
+            @RequestParam(required = false) Integer size) {
+        return voucherService.list(from, to, type, size);
     }
 
     @GetMapping("/vouchers/{id:\\d+}")

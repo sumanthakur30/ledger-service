@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,13 +38,19 @@ public class VoucherService {
         this.periodLockService = periodLockService;
     }
 
+    /** Hardened list — default size 200, max 500 (matches wholesale SO/challan). */
     @Transactional(readOnly = true)
-    public List<LedgerVoucher> list(LocalDate from, LocalDate to, String voucherType) {
+    public List<LedgerVoucher> list(LocalDate from, LocalDate to, String voucherType, Integer size) {
         requireManageOrders();
         String type = blank(voucherType) ? "" : voucherType.trim().toUpperCase(Locale.ROOT);
         LocalDate fromDate = from != null ? from : LocalDate.of(2000, 1, 1);
         LocalDate toDate = to != null ? to : LocalDate.of(2100, 12, 31);
-        return voucherRepository.search(requireTenantId(), requireShopId(), fromDate, toDate, type);
+        int limit = size == null ? 200 : Math.max(1, Math.min(500, size));
+        List<LedgerVoucher> vouchers = voucherRepository.searchLimited(
+                requireTenantId(), requireShopId(), fromDate, toDate, type, Pageable.ofSize(limit));
+        // Force-init lines while session is open (defense in depth with EntityGraph).
+        vouchers.forEach(v -> v.getLines().size());
+        return vouchers;
     }
 
     @Transactional(readOnly = true)

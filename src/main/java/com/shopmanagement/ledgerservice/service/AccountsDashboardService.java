@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -44,8 +45,13 @@ public class AccountsDashboardService {
         List<LedgerAccount> accounts = accountRepository.findByTenantIdAndShopIdOrderByCodeAsc(tenantId, shopId);
         List<LedgerVoucher> periodVouchers =
                 voucherRepository.search(tenantId, shopId, fromDate, toDate, "");
-        List<LedgerVoucher> allRecent =
-                voucherRepository.search(tenantId, shopId, LocalDate.of(2000, 1, 1), LocalDate.of(2100, 12, 31), "");
+        List<LedgerVoucher> allRecent = voucherRepository.searchLimited(
+                tenantId,
+                shopId,
+                LocalDate.of(2000, 1, 1),
+                LocalDate.of(2100, 12, 31),
+                "",
+                Pageable.ofSize(10));
 
         int posted = 0;
         int draft = 0;
@@ -91,9 +97,6 @@ public class AccountsDashboardService {
 
         List<RecentVoucherRow> recent = new ArrayList<>();
         for (LedgerVoucher v : allRecent) {
-            if (recent.size() >= 10) {
-                break;
-            }
             recent.add(new RecentVoucherRow(
                     v.getId(),
                     v.getVoucherNumber(),
