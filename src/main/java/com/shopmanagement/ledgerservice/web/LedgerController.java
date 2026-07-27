@@ -25,6 +25,7 @@ import com.shopmanagement.ledgerservice.dto.CreateAccountRequest;
 import com.shopmanagement.ledgerservice.dto.CreateVoucherRequest;
 import com.shopmanagement.ledgerservice.dto.CreditInterestVoucherRequest;
 import com.shopmanagement.ledgerservice.dto.GoodsReceiptVoucherRequest;
+import com.shopmanagement.ledgerservice.dto.LabCcSettlementVoucherRequest;
 import com.shopmanagement.ledgerservice.dto.ProfitAndLossResponse;
 import com.shopmanagement.ledgerservice.dto.SalesInvoiceVoucherRequest;
 import com.shopmanagement.ledgerservice.dto.SalesReturnVoucherRequest;
@@ -42,6 +43,7 @@ import com.shopmanagement.ledgerservice.service.CollectionReceiptVoucherService;
 import com.shopmanagement.ledgerservice.service.CreditInterestVoucherService;
 import com.shopmanagement.ledgerservice.service.FinalAccountsService;
 import com.shopmanagement.ledgerservice.service.GoodsReceiptVoucherService;
+import com.shopmanagement.ledgerservice.service.LabCcSettlementVoucherService;
 import com.shopmanagement.ledgerservice.service.PeriodLockService;
 import com.shopmanagement.ledgerservice.service.SalesInvoiceVoucherService;
 import com.shopmanagement.ledgerservice.service.SalesReturnVoucherService;
@@ -70,6 +72,7 @@ public class LedgerController {
     private final AccountsDashboardService accountsDashboardService;
     private final FinalAccountsService finalAccountsService;
     private final StockWriteOffVoucherService stockWriteOffVoucherService;
+    private final LabCcSettlementVoucherService labCcSettlementVoucherService;
     private final PeriodLockService periodLockService;
     private final BankReconciliationService bankReconciliationService;
 
@@ -86,6 +89,7 @@ public class LedgerController {
             AccountsDashboardService accountsDashboardService,
             FinalAccountsService finalAccountsService,
             StockWriteOffVoucherService stockWriteOffVoucherService,
+            LabCcSettlementVoucherService labCcSettlementVoucherService,
             PeriodLockService periodLockService,
             BankReconciliationService bankReconciliationService) {
         this.chartOfAccountsService = chartOfAccountsService;
@@ -100,6 +104,7 @@ public class LedgerController {
         this.accountsDashboardService = accountsDashboardService;
         this.finalAccountsService = finalAccountsService;
         this.stockWriteOffVoucherService = stockWriteOffVoucherService;
+        this.labCcSettlementVoucherService = labCcSettlementVoucherService;
         this.periodLockService = periodLockService;
         this.bankReconciliationService = bankReconciliationService;
     }
@@ -199,6 +204,13 @@ public class LedgerController {
     @ResponseStatus(HttpStatus.CREATED)
     public LedgerVoucher fromStockWriteOff(@RequestBody StockWriteOffVoucherRequest request) {
         return stockWriteOffVoucherService.postFromStockWriteOff(request);
+    }
+
+    /** Path-lab CC settlement → Dr 5500 / Cr 2000 (+ Cr 2300 TDS) — idempotent by settlement run id. */
+    @PostMapping("/vouchers/from-lab-cc-settlement")
+    @ResponseStatus(HttpStatus.CREATED)
+    public LedgerVoucher fromLabCcSettlement(@RequestBody LabCcSettlementVoucherRequest request) {
+        return labCcSettlementVoucherService.postFromLabCcSettlement(request);
     }
 
     @GetMapping("/trial-balance")

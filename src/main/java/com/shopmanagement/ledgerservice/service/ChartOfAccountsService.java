@@ -28,7 +28,9 @@ public class ChartOfAccountsService {
             {"5100", "Freight / Landed charges", "EXPENSE"},
             {"5200", "Discount allowed", "EXPENSE"},
             {"5300", "Cost of goods sold", "EXPENSE"},
-            {"5400", "Stock write-off / Dump-Brk-Exp", "EXPENSE"}
+            {"5400", "Stock write-off / Dump-Brk-Exp", "EXPENSE"},
+            {"5500", "Collection centre / outsource expense", "EXPENSE"},
+            {"2300", "TDS Payable", "LIABILITY"}
     };
 
     private final LedgerAccountRepository accountRepository;
