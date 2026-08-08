@@ -15,8 +15,10 @@ import com.shopmanagement.ledgerservice.dto.TrialBalanceRow;
 import com.shopmanagement.ledgerservice.filter.RequestIdFilter;
 import com.shopmanagement.ledgerservice.model.LedgerAccount;
 import com.shopmanagement.ledgerservice.model.LedgerVoucher;
+import com.shopmanagement.ledgerservice.repository.ExpenseEntryRepository;
 import com.shopmanagement.ledgerservice.repository.LedgerAccountRepository;
 import com.shopmanagement.ledgerservice.repository.LedgerVoucherRepository;
+import com.shopmanagement.ledgerservice.repository.OtherIncomeEntryRepository;
 
 @Service
 public class AccountsDashboardService {
@@ -24,14 +26,20 @@ public class AccountsDashboardService {
     private final LedgerAccountRepository accountRepository;
     private final LedgerVoucherRepository voucherRepository;
     private final VoucherService voucherService;
+    private final ExpenseEntryRepository expenseEntryRepository;
+    private final OtherIncomeEntryRepository otherIncomeEntryRepository;
 
     public AccountsDashboardService(
             LedgerAccountRepository accountRepository,
             LedgerVoucherRepository voucherRepository,
-            VoucherService voucherService) {
+            VoucherService voucherService,
+            ExpenseEntryRepository expenseEntryRepository,
+            OtherIncomeEntryRepository otherIncomeEntryRepository) {
         this.accountRepository = accountRepository;
         this.voucherRepository = voucherRepository;
         this.voucherService = voucherService;
+        this.expenseEntryRepository = expenseEntryRepository;
+        this.otherIncomeEntryRepository = otherIncomeEntryRepository;
     }
 
     @Transactional(readOnly = true)
@@ -108,6 +116,9 @@ public class AccountsDashboardService {
                     v.getVoucherDate() != null ? v.getVoucherDate().toString() : null));
         }
 
+        double opexMtd = round2(nz(expenseEntryRepository.sumPostedAmount(tenantId, shopId, fromDate, toDate)));
+        double otherIncomeMtd = round2(nz(otherIncomeEntryRepository.sumPostedAmount(tenantId, shopId, fromDate, toDate)));
+
         return new AccountsDashboardResponse(
                 accounts.size(),
                 posted,
@@ -120,11 +131,17 @@ public class AccountsDashboardService {
                 round2(sales),
                 round2(gst),
                 highlight,
-                recent);
+                recent,
+                opexMtd,
+                otherIncomeMtd);
     }
 
     private static double safe(Double value) {
         return value == null ? 0.0 : value;
+    }
+
+    private static double nz(java.math.BigDecimal value) {
+        return value == null ? 0.0 : value.doubleValue();
     }
 
     private static double round2(double value) {

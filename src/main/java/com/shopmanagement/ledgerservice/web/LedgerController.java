@@ -6,9 +6,8 @@ import java.util.Map;
 
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -20,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.shopmanagement.ledgerservice.dto.AccountBookResponse;
 import com.shopmanagement.ledgerservice.dto.AccountsDashboardResponse;
 import com.shopmanagement.ledgerservice.dto.BalanceSheetResponse;
+import com.shopmanagement.ledgerservice.dto.CashVsProfitResponse;
 import com.shopmanagement.ledgerservice.dto.CollectionReceiptVoucherRequest;
 import com.shopmanagement.ledgerservice.dto.CreateAccountRequest;
 import com.shopmanagement.ledgerservice.dto.CreateVoucherRequest;
@@ -38,6 +38,7 @@ import com.shopmanagement.ledgerservice.model.LedgerVoucherLine;
 import com.shopmanagement.ledgerservice.service.AccountBookService;
 import com.shopmanagement.ledgerservice.service.AccountsDashboardService;
 import com.shopmanagement.ledgerservice.service.BankReconciliationService;
+import com.shopmanagement.ledgerservice.service.CashVsProfitService;
 import com.shopmanagement.ledgerservice.service.ChartOfAccountsService;
 import com.shopmanagement.ledgerservice.service.CollectionReceiptVoucherService;
 import com.shopmanagement.ledgerservice.service.CreditInterestVoucherService;
@@ -50,8 +51,6 @@ import com.shopmanagement.ledgerservice.service.SalesReturnVoucherService;
 import com.shopmanagement.ledgerservice.service.StockWriteOffVoucherService;
 import com.shopmanagement.ledgerservice.service.SupplierPaymentVoucherService;
 import com.shopmanagement.ledgerservice.service.VoucherService;
-
-import org.springframework.web.bind.annotation.PatchMapping;
 
 /**
  * Trade GL (CoA + vouchers). Parallel to clinic RevenueLedger and party AR in order-service.
@@ -75,6 +74,7 @@ public class LedgerController {
     private final LabCcSettlementVoucherService labCcSettlementVoucherService;
     private final PeriodLockService periodLockService;
     private final BankReconciliationService bankReconciliationService;
+    private final CashVsProfitService cashVsProfitService;
 
     public LedgerController(
             ChartOfAccountsService chartOfAccountsService,
@@ -91,7 +91,8 @@ public class LedgerController {
             StockWriteOffVoucherService stockWriteOffVoucherService,
             LabCcSettlementVoucherService labCcSettlementVoucherService,
             PeriodLockService periodLockService,
-            BankReconciliationService bankReconciliationService) {
+            BankReconciliationService bankReconciliationService,
+            CashVsProfitService cashVsProfitService) {
         this.chartOfAccountsService = chartOfAccountsService;
         this.voucherService = voucherService;
         this.salesInvoiceVoucherService = salesInvoiceVoucherService;
@@ -107,6 +108,7 @@ public class LedgerController {
         this.labCcSettlementVoucherService = labCcSettlementVoucherService;
         this.periodLockService = periodLockService;
         this.bankReconciliationService = bankReconciliationService;
+        this.cashVsProfitService = cashVsProfitService;
     }
 
     @GetMapping("/dashboard")
@@ -227,6 +229,14 @@ public class LedgerController {
         return finalAccountsService.profitAndLoss(from, to);
     }
 
+    /** Cash movement (1000/1010) vs accrual net profit for the same period. */
+    @GetMapping("/reports/cash-vs-profit")
+    public CashVsProfitResponse cashVsProfit(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        return cashVsProfitService.cashVsProfit(from, to);
+    }
+
     /** Final accounts — Balance sheet as of date (TB + current-year P&amp;L equity plug). */
     @GetMapping("/reports/balance-sheet")
     public BalanceSheetResponse balanceSheet(
@@ -269,15 +279,4 @@ public class LedgerController {
         return Map.of("lockedThrough", locked.toString());
     }
 
-    @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<Map<String, String>> badRequest(IllegalArgumentException ex) {
-        return ResponseEntity.badRequest()
-                .body(Map.of("message", ex.getMessage() != null ? ex.getMessage() : "Bad request"));
-    }
-
-    @ExceptionHandler(SecurityException.class)
-    public ResponseEntity<Map<String, String>> forbidden(SecurityException ex) {
-        return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                .body(Map.of("message", ex.getMessage() != null ? ex.getMessage() : "Forbidden"));
-    }
 }

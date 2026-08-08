@@ -172,7 +172,8 @@ public class AccountBookService {
             }
         }
         var perms = RequestIdFilter.getCurrentPermissions();
-        if (perms.contains("MANAGE_ORDERS") || perms.contains("PROCUREMENT_FINANCE")) {
+        if (perms.contains("MANAGE_ORDERS") || perms.contains("PROCUREMENT_FINANCE")
+                || perms.contains("MANAGE_FINANCE")) {
             return;
         }
         throw new SecurityException("Forbidden: missing permission MANAGE_ORDERS");

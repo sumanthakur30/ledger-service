@@ -15,7 +15,9 @@ public record AccountsDashboardResponse(
         double salesCreditBalance,
         double gstPayableBalance,
         List<TrialBalanceRow> trialBalanceHighlight,
-        List<RecentVoucherRow> recentVouchers) {
+        List<RecentVoucherRow> recentVouchers,
+        double opexMtd,
+        double otherIncomeMtd) {
 
     public record RecentVoucherRow(
             Long id,
