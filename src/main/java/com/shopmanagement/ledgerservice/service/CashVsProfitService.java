@@ -33,7 +33,7 @@ public class CashVsProfitService {
         this.chartOfAccountsService = chartOfAccountsService;
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public CashVsProfitResponse cashVsProfit(LocalDate from, LocalDate to) {
         LocalDate fromDate = from != null ? from : LocalDate.now().withDayOfMonth(1);
         LocalDate toDate = to != null ? to : LocalDate.now();
