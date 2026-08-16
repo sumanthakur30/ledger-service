@@ -9,6 +9,7 @@ public class CreditInterestVoucherRequest {
     private LocalDate asOfDate;
     private Double amount;
     private String narration;
+    private Long branchId;
 
     public Long getPostingId() { return postingId; }
     public void setPostingId(Long postingId) { this.postingId = postingId; }
@@ -20,4 +21,6 @@ public class CreditInterestVoucherRequest {
     public void setAmount(Double amount) { this.amount = amount; }
     public String getNarration() { return narration; }
     public void setNarration(String narration) { this.narration = narration; }
+    public Long getBranchId() { return branchId; }
+    public void setBranchId(Long branchId) { this.branchId = branchId; }
 }

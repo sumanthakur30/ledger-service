@@ -3,6 +3,7 @@ package com.shopmanagement.ledgerservice.service;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -15,9 +16,11 @@ import com.shopmanagement.ledgerservice.repository.ShopPeriodLockRepository;
 public class PeriodLockService {
 
     private final ShopPeriodLockRepository repository;
+    private final FiscalYearService fiscalYearService;
 
-    public PeriodLockService(ShopPeriodLockRepository repository) {
+    public PeriodLockService(ShopPeriodLockRepository repository, @Lazy FiscalYearService fiscalYearService) {
         this.repository = repository;
+        this.fiscalYearService = fiscalYearService;
     }
 
     @Transactional(readOnly = true)
@@ -68,6 +71,7 @@ public class PeriodLockService {
                                 + " — cannot post voucher dated " + date);
             }
         });
+        fiscalYearService.assertNotClosed(date);
     }
 
     private Long requireTenantId() {
@@ -88,11 +92,13 @@ public class PeriodLockService {
 
     private void requireManageOrders() {
         String role = RequestIdFilter.getCurrentRole();
-        if ("SUPER_ADMIN".equals(role) || "SHOP_OWNER".equals(role)) {
+        if ("SUPER_ADMIN".equals(role) || "SHOP_OWNER".equals(role) || "TRADE_ACCOUNTANT".equals(role)) {
             return;
         }
-        if (!RequestIdFilter.getCurrentPermissions().contains("MANAGE_ORDERS")) {
-            throw new SecurityException("Forbidden: missing permission MANAGE_ORDERS");
+        var perms = RequestIdFilter.getCurrentPermissions();
+        if (perms.contains("MANAGE_ORDERS") || perms.contains("MANAGE_FINANCE")) {
+            return;
         }
+        throw new SecurityException("Forbidden: missing permission MANAGE_ORDERS");
     }
 }

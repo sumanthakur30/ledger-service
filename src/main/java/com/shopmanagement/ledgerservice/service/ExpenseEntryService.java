@@ -200,6 +200,7 @@ public class ExpenseEntryService {
         LedgerVoucher voucher = new LedgerVoucher();
         voucher.setTenantId(tenantId);
         voucher.setShopId(shopId);
+        voucher.setBranchId(TrialBalanceMath.normalize(entry.getBranchId()));
         voucher.setVoucherNumber("EXP-" + entry.getId());
         voucher.setVoucherDate(entry.getEntryDate());
         voucher.setVoucherType(voucherType);
@@ -255,6 +256,7 @@ public class ExpenseEntryService {
         LedgerVoucher reverse = new LedgerVoucher();
         reverse.setTenantId(tenantId);
         reverse.setShopId(shopId);
+        reverse.setBranchId(original.getBranchId());
         reverse.setVoucherNumber("EXP-VOID-" + entry.getId());
         reverse.setVoucherDate(LocalDate.now());
         reverse.setVoucherType("JOURNAL");
@@ -310,6 +312,7 @@ public class ExpenseEntryService {
         entry.setVendorName(trimToNull(request.getVendorName()));
         entry.setNarration(trimToNull(request.getNarration()));
         entry.setAttachmentUri(trimToNull(request.getAttachmentUri()));
+        entry.setBranchId(TrialBalanceMath.normalize(request.getBranchId()));
     }
 
     private String resolveCreditAccountCode(String mode, String override) {

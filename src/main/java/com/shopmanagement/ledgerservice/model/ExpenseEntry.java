@@ -84,6 +84,9 @@ public class ExpenseEntry {
     @Column(name = "branch_shop_id", length = 64)
     private String branchShopId;
 
+    @Column(name = "branch_id")
+    private Long branchId;
+
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
@@ -146,6 +149,8 @@ public class ExpenseEntry {
     public void setAttachmentUri(String attachmentUri) { this.attachmentUri = attachmentUri; }
     public String getBranchShopId() { return branchShopId; }
     public void setBranchShopId(String branchShopId) { this.branchShopId = branchShopId; }
+    public Long getBranchId() { return branchId; }
+    public void setBranchId(Long branchId) { this.branchId = branchId; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }
 }

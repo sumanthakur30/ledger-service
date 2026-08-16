@@ -77,6 +77,7 @@ public class SupplierPaymentVoucherService {
         LedgerVoucher voucher = new LedgerVoucher();
         voucher.setTenantId(tenantId);
         voucher.setShopId(shopId);
+        voucher.setBranchId(TrialBalanceMath.normalize(request.getBranchId()));
         voucher.setVoucherNumber(voucherNo);
         voucher.setVoucherDate(request.getPaymentDate() != null ? request.getPaymentDate() : LocalDate.now());
         voucher.setVoucherType("PAYMENT");

@@ -14,6 +14,7 @@ public class ExpenseEntryRequest {
     private String vendorName;
     private String narration;
     private String attachmentUri;
+    private Long branchId;
 
     public LocalDate getEntryDate() { return entryDate; }
     public void setEntryDate(LocalDate entryDate) { this.entryDate = entryDate; }
@@ -35,4 +36,6 @@ public class ExpenseEntryRequest {
     public void setNarration(String narration) { this.narration = narration; }
     public String getAttachmentUri() { return attachmentUri; }
     public void setAttachmentUri(String attachmentUri) { this.attachmentUri = attachmentUri; }
+    public Long getBranchId() { return branchId; }
+    public void setBranchId(Long branchId) { this.branchId = branchId; }
 }

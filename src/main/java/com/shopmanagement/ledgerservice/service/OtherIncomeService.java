@@ -163,6 +163,7 @@ public class OtherIncomeService {
         LedgerVoucher voucher = new LedgerVoucher();
         voucher.setTenantId(tenantId);
         voucher.setShopId(shopId);
+        voucher.setBranchId(TrialBalanceMath.normalize(entry.getBranchId()));
         voucher.setVoucherNumber("OI-" + entry.getId());
         voucher.setVoucherDate(entry.getEntryDate());
         voucher.setVoucherType(voucherType);
@@ -218,6 +219,7 @@ public class OtherIncomeService {
         LedgerVoucher reverse = new LedgerVoucher();
         reverse.setTenantId(tenantId);
         reverse.setShopId(shopId);
+        reverse.setBranchId(original.getBranchId());
         reverse.setVoucherNumber("OI-VOID-" + entry.getId());
         reverse.setVoucherDate(LocalDate.now());
         reverse.setVoucherType("JOURNAL");
@@ -268,6 +270,7 @@ public class OtherIncomeService {
         entry.setCashAccountCode(trimToNull(request.getCashAccountCode()));
         entry.setPayerName(trimToNull(request.getPayerName()));
         entry.setNarration(trimToNull(request.getNarration()));
+        entry.setBranchId(TrialBalanceMath.normalize(request.getBranchId()));
     }
 
     private String resolveDebitAccountCode(String mode, String override) {

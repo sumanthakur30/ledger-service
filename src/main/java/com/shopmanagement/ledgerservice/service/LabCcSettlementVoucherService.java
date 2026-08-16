@@ -78,6 +78,7 @@ public class LabCcSettlementVoucherService {
         LedgerVoucher voucher = new LedgerVoucher();
         voucher.setTenantId(tenantId);
         voucher.setShopId(shopId);
+        voucher.setBranchId(TrialBalanceMath.normalize(request.getBranchId()));
         voucher.setVoucherNumber("LCC-" + request.getSettlementRunId());
         voucher.setVoucherDate(request.getVoucherDate() != null ? request.getVoucherDate() : LocalDate.now());
         voucher.setVoucherType("JOURNAL");

@@ -18,7 +18,7 @@ import com.shopmanagement.ledgerservice.repository.LedgerVoucherRepository;
 
 /**
  * Maps trade sales invoices to posted journal vouchers:
- * Dr Debtors (1100) = total; Cr Sales (4000) = net; Cr GST Payable (2100) = tax;
+ * Dr Debtors (1100) = total; Cr Sales (4000) = net; Cr Output CGST/SGST/IGST (or GST Payable 2100);
  * optional Dr COGS (5300) / Cr Stock (1200) when cogsAmount &gt; 0.
  */
 @Service
@@ -28,7 +28,6 @@ public class SalesInvoiceVoucherService {
     public static final String CODE_DEBTORS = "1100";
     public static final String CODE_STOCK = "1200";
     public static final String CODE_SALES = "4000";
-    public static final String CODE_GST_PAYABLE = "2100";
     public static final String CODE_COGS = "5300";
 
     private final LedgerVoucherRepository voucherRepository;
@@ -66,19 +65,17 @@ public class SalesInvoiceVoucherService {
         if (total <= 0) {
             throw new IllegalArgumentException("Invoice total must be greater than zero");
         }
-        double tax = round2(Math.max(0, safe(request.getTaxAmount())));
+        GstSplit gst = GstSplit.of(
+                request.getTaxAmount(), request.getCgstAmount(), request.getSgstAmount(), request.getIgstAmount())
+                .cappedTo(total);
+        double tax = gst.total;
         double discount = round2(Math.max(0, safe(request.getDiscountAmount())));
         double subtotal = round2(safe(request.getSubtotalAmount()));
         double netSales = round2(subtotal - discount);
         if (netSales < 0) {
             netSales = 0;
         }
-        // Keep voucher balanced if tax/net don't add to total (rounding / inclusive pricing).
         double salesCredit = round2(total - tax);
-        if (salesCredit < 0) {
-            salesCredit = 0;
-            tax = total;
-        }
         double cogs = round2(Math.max(0, safe(request.getCogsAmount())));
 
         LocalDate voucherDate = request.getInvoiceDate() != null ? request.getInvoiceDate() : LocalDate.now();
@@ -87,13 +84,13 @@ public class SalesInvoiceVoucherService {
         chartOfAccountsService.seedDefaults();
         LedgerAccount debtors = requireAccount(tenantId, shopId, CODE_DEBTORS);
         LedgerAccount sales = requireAccount(tenantId, shopId, CODE_SALES);
-        LedgerAccount gst = requireAccount(tenantId, shopId, CODE_GST_PAYABLE);
         LedgerAccount cogsAccount = cogs > 0.009 ? requireAccount(tenantId, shopId, CODE_COGS) : null;
         LedgerAccount stock = cogs > 0.009 ? requireAccount(tenantId, shopId, CODE_STOCK) : null;
 
         LedgerVoucher voucher = new LedgerVoucher();
         voucher.setTenantId(tenantId);
         voucher.setShopId(shopId);
+        voucher.setBranchId(TrialBalanceMath.normalize(request.getBranchId()));
         voucher.setVoucherNumber("SI-" + request.getInvoiceId());
         voucher.setVoucherDate(voucherDate);
         voucher.setVoucherType("SALES");
@@ -112,9 +109,7 @@ public class SalesInvoiceVoucherService {
         if (salesCredit > 0.009) {
             voucher.addLine(line(sales.getId(), 0, salesCredit, "Sales " + invNo, lineNo++));
         }
-        if (tax > 0.009) {
-            voucher.addLine(line(gst.getId(), 0, tax, "GST " + invNo, lineNo++));
-        }
+        lineNo = GstLedgerCodes.creditOutput(voucher, code -> requireAccount(tenantId, shopId, code), gst, invNo, lineNo);
         if (cogs > 0.009 && cogsAccount != null && stock != null) {
             voucher.addLine(line(cogsAccount.getId(), cogs, 0, "COGS " + invNo, lineNo++));
             voucher.addLine(line(stock.getId(), 0, cogs, "Stock issue " + invNo, lineNo++));

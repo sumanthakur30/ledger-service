@@ -13,24 +13,32 @@ import com.shopmanagement.ledgerservice.repository.LedgerAccountRepository;
 @Service
 public class ChartOfAccountsService {
 
+    /** code, name, type, optional parent code */
     private static final String[][] DEFAULTS = {
-            {"1000", "Cash", "ASSET"},
-            {"1010", "Bank", "ASSET"},
-            {"1100", "Sundry Debtors", "ASSET"},
-            {"1200", "Stock / Inventory", "ASSET"},
-            {"2000", "Sundry Creditors", "LIABILITY"},
-            {"2100", "GST Payable", "LIABILITY"},
-            {"2200", "GST Input Credit", "ASSET"},
-            {"3000", "Capital", "EQUITY"},
-            {"4000", "Sales", "INCOME"},
-            {"4100", "Interest Income", "INCOME"},
-            {"5000", "Purchase", "EXPENSE"},
-            {"5100", "Freight / Landed charges", "EXPENSE"},
-            {"5200", "Discount allowed", "EXPENSE"},
-            {"5300", "Cost of goods sold", "EXPENSE"},
-            {"5400", "Stock write-off / Dump-Brk-Exp", "EXPENSE"},
-            {"5500", "Collection centre / outsource expense", "EXPENSE"},
-            {"2300", "TDS Payable", "LIABILITY"}
+            {"1000", "Cash", "ASSET", ""},
+            {"1010", "Bank", "ASSET", ""},
+            {"1100", "Sundry Debtors", "ASSET", ""},
+            {"1200", "Stock / Inventory", "ASSET", ""},
+            {"2000", "Sundry Creditors", "LIABILITY", ""},
+            {"2100", "GST Payable", "LIABILITY", ""},
+            {"2110", "Output CGST", "LIABILITY", "2100"},
+            {"2120", "Output SGST", "LIABILITY", "2100"},
+            {"2130", "Output IGST", "LIABILITY", "2100"},
+            {"2200", "GST Input Credit", "ASSET", ""},
+            {"2210", "Input CGST", "ASSET", "2200"},
+            {"2220", "Input SGST", "ASSET", "2200"},
+            {"2230", "Input IGST", "ASSET", "2200"},
+            {"3000", "Capital", "EQUITY", ""},
+            {"3100", "Retained earnings", "EQUITY", ""},
+            {"4000", "Sales", "INCOME", ""},
+            {"4100", "Interest Income", "INCOME", ""},
+            {"5000", "Purchase", "EXPENSE", ""},
+            {"5100", "Freight / Landed charges", "EXPENSE", ""},
+            {"5200", "Discount allowed", "EXPENSE", ""},
+            {"5300", "Cost of goods sold", "EXPENSE", ""},
+            {"5400", "Stock write-off / Dump-Brk-Exp", "EXPENSE", ""},
+            {"5500", "Collection centre / outsource expense", "EXPENSE", ""},
+            {"2300", "TDS Payable", "LIABILITY", ""}
     };
 
     private final LedgerAccountRepository accountRepository;
@@ -74,6 +82,15 @@ public class ChartOfAccountsService {
     @Transactional
     public java.util.List<LedgerAccount> seedDefaults() {
         requireManageOrders();
+        return ensureSystemDefaults();
+    }
+
+    /**
+     * Idempotent system CoA seed for auto-posting vouchers. Does not require MANAGE_ORDERS
+     * so clinic/lab/pharmacy bills can post when the operator only has department permissions.
+     */
+    @Transactional
+    public java.util.List<LedgerAccount> ensureSystemDefaults() {
         Long tenantId = requireTenantId();
         String shopId = requireShopId();
         for (String[] row : DEFAULTS) {
@@ -90,7 +107,23 @@ public class ChartOfAccountsService {
             account.setSystemAccount(Boolean.TRUE);
             accountRepository.save(account);
         }
+        linkDefaultParents(tenantId, shopId);
         return accountRepository.findByTenantIdAndShopIdOrderByCodeAsc(tenantId, shopId);
+    }
+
+    private void linkDefaultParents(Long tenantId, String shopId) {
+        for (String[] row : DEFAULTS) {
+            if (row.length < 4 || row[3] == null || row[3].isBlank()) {
+                continue;
+            }
+            LedgerAccount child = accountRepository.findByTenantIdAndShopIdAndCode(tenantId, shopId, row[0]).orElse(null);
+            LedgerAccount parent = accountRepository.findByTenantIdAndShopIdAndCode(tenantId, shopId, row[3]).orElse(null);
+            if (child == null || parent == null || child.getParentId() != null) {
+                continue;
+            }
+            child.setParentId(parent.getId());
+            accountRepository.save(child);
+        }
     }
 
     static void validateType(String type) {

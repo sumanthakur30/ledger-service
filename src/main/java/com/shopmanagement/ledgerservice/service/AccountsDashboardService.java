@@ -95,8 +95,8 @@ public class AccountsDashboardService {
                 inventory = netDr;
             } else if ("4000".equals(code)) {
                 sales = netCr;
-            } else if ("2100".equals(code)) {
-                gst = netCr;
+            } else if (GstLedgerCodes.isOutput(code)) {
+                gst = round2(gst + netCr);
             }
             if (highlight.size() < 8 && (row.debit() > 0.009 || row.credit() > 0.009)) {
                 highlight.add(row);

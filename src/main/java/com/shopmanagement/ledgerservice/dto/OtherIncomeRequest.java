@@ -11,6 +11,7 @@ public class OtherIncomeRequest {
     private String cashAccountCode;
     private String payerName;
     private String narration;
+    private Long branchId;
 
     public LocalDate getEntryDate() { return entryDate; }
     public void setEntryDate(LocalDate entryDate) { this.entryDate = entryDate; }
@@ -26,4 +27,6 @@ public class OtherIncomeRequest {
     public void setPayerName(String payerName) { this.payerName = payerName; }
     public String getNarration() { return narration; }
     public void setNarration(String narration) { this.narration = narration; }
+    public Long getBranchId() { return branchId; }
+    public void setBranchId(Long branchId) { this.branchId = branchId; }
 }

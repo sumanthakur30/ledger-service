@@ -11,7 +11,12 @@ public class SalesReturnVoucherRequest {
     private String invoiceNumber;
     private LocalDate returnDate;
     private Double totalAmount;
+    private Double taxAmount;
+    private Double cgstAmount;
+    private Double sgstAmount;
+    private Double igstAmount;
     private String narration;
+    private Long branchId;
 
     public Long getSalesReturnId() { return salesReturnId; }
     public void setSalesReturnId(Long salesReturnId) { this.salesReturnId = salesReturnId; }
@@ -27,6 +32,16 @@ public class SalesReturnVoucherRequest {
     public void setReturnDate(LocalDate returnDate) { this.returnDate = returnDate; }
     public Double getTotalAmount() { return totalAmount; }
     public void setTotalAmount(Double totalAmount) { this.totalAmount = totalAmount; }
+    public Double getTaxAmount() { return taxAmount; }
+    public void setTaxAmount(Double taxAmount) { this.taxAmount = taxAmount; }
+    public Double getCgstAmount() { return cgstAmount; }
+    public void setCgstAmount(Double cgstAmount) { this.cgstAmount = cgstAmount; }
+    public Double getSgstAmount() { return sgstAmount; }
+    public void setSgstAmount(Double sgstAmount) { this.sgstAmount = sgstAmount; }
+    public Double getIgstAmount() { return igstAmount; }
+    public void setIgstAmount(Double igstAmount) { this.igstAmount = igstAmount; }
     public String getNarration() { return narration; }
     public void setNarration(String narration) { this.narration = narration; }
+    public Long getBranchId() { return branchId; }
+    public void setBranchId(Long branchId) { this.branchId = branchId; }
 }

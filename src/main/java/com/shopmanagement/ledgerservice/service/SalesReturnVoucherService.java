@@ -18,8 +18,8 @@ import com.shopmanagement.ledgerservice.repository.LedgerVoucherRepository;
 
 /**
  * Maps trade sales returns to posted credit-note journals:
- * Dr Sales (4000) + Dr GST Payable (2100); Cr Debtors (1100).
- * When tax split is unknown, the full amount credits debtors and debits sales.
+ * Dr Sales (4000) + Dr Output GST; Cr Debtors (1100).
+ * When tax split is unknown, the tax portion posts to GST Payable 2100.
  */
 @Service
 public class SalesReturnVoucherService {
@@ -68,6 +68,7 @@ public class SalesReturnVoucherService {
         LedgerVoucher voucher = new LedgerVoucher();
         voucher.setTenantId(tenantId);
         voucher.setShopId(shopId);
+        voucher.setBranchId(TrialBalanceMath.normalize(request.getBranchId()));
         voucher.setVoucherNumber("CN-" + request.getSalesReturnId());
         voucher.setVoucherDate(request.getReturnDate() != null ? request.getReturnDate() : LocalDate.now());
         voucher.setVoucherType("CREDIT_NOTE");
@@ -83,8 +84,17 @@ public class SalesReturnVoucherService {
                         ? request.getNarration().trim()
                         : "Sales return credit note " + cn);
 
+        GstSplit gst = GstSplit.of(
+                request.getTaxAmount(), request.getCgstAmount(), request.getSgstAmount(), request.getIgstAmount())
+                .cappedTo(total);
+        double salesDebit = round2(total - gst.total);
+
         int lineNo = 1;
-        voucher.addLine(line(sales.getId(), total, 0, "Sales return " + cn, lineNo++));
+        if (salesDebit > 0.009) {
+            voucher.addLine(line(sales.getId(), salesDebit, 0, "Sales return " + cn, lineNo++));
+        }
+        lineNo = GstLedgerCodes.debitOutput(
+                voucher, code -> requireAccount(tenantId, shopId, code), gst, cn, lineNo);
         voucher.addLine(line(debtors.getId(), 0, total, "AR reverse " + cn, lineNo));
         voucher.setTotalDebit(total);
         voucher.setTotalCredit(total);

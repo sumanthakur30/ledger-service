@@ -26,6 +26,7 @@ import com.shopmanagement.ledgerservice.dto.CreateVoucherRequest;
 import com.shopmanagement.ledgerservice.dto.CreditInterestVoucherRequest;
 import com.shopmanagement.ledgerservice.dto.GoodsReceiptVoucherRequest;
 import com.shopmanagement.ledgerservice.dto.LabCcSettlementVoucherRequest;
+import com.shopmanagement.ledgerservice.dto.PosSaleVoucherRequest;
 import com.shopmanagement.ledgerservice.dto.ProfitAndLossResponse;
 import com.shopmanagement.ledgerservice.dto.SalesInvoiceVoucherRequest;
 import com.shopmanagement.ledgerservice.dto.SalesReturnVoucherRequest;
@@ -46,6 +47,7 @@ import com.shopmanagement.ledgerservice.service.FinalAccountsService;
 import com.shopmanagement.ledgerservice.service.GoodsReceiptVoucherService;
 import com.shopmanagement.ledgerservice.service.LabCcSettlementVoucherService;
 import com.shopmanagement.ledgerservice.service.PeriodLockService;
+import com.shopmanagement.ledgerservice.service.PosSaleVoucherService;
 import com.shopmanagement.ledgerservice.service.SalesInvoiceVoucherService;
 import com.shopmanagement.ledgerservice.service.SalesReturnVoucherService;
 import com.shopmanagement.ledgerservice.service.StockWriteOffVoucherService;
@@ -62,6 +64,7 @@ public class LedgerController {
     private final ChartOfAccountsService chartOfAccountsService;
     private final VoucherService voucherService;
     private final SalesInvoiceVoucherService salesInvoiceVoucherService;
+    private final PosSaleVoucherService posSaleVoucherService;
     private final SalesReturnVoucherService salesReturnVoucherService;
     private final CollectionReceiptVoucherService collectionReceiptVoucherService;
     private final CreditInterestVoucherService creditInterestVoucherService;
@@ -80,6 +83,7 @@ public class LedgerController {
             ChartOfAccountsService chartOfAccountsService,
             VoucherService voucherService,
             SalesInvoiceVoucherService salesInvoiceVoucherService,
+            PosSaleVoucherService posSaleVoucherService,
             SalesReturnVoucherService salesReturnVoucherService,
             CollectionReceiptVoucherService collectionReceiptVoucherService,
             CreditInterestVoucherService creditInterestVoucherService,
@@ -96,6 +100,7 @@ public class LedgerController {
         this.chartOfAccountsService = chartOfAccountsService;
         this.voucherService = voucherService;
         this.salesInvoiceVoucherService = salesInvoiceVoucherService;
+        this.posSaleVoucherService = posSaleVoucherService;
         this.salesReturnVoucherService = salesReturnVoucherService;
         this.collectionReceiptVoucherService = collectionReceiptVoucherService;
         this.creditInterestVoucherService = creditInterestVoucherService;
@@ -166,6 +171,13 @@ public class LedgerController {
         return salesInvoiceVoucherService.postFromSalesInvoice(request);
     }
 
+    /** Auto-post POS / clinic department bill → Cash|Bank|AR / Sales / GST (idempotent by order id). */
+    @PostMapping("/vouchers/from-pos-sale")
+    @ResponseStatus(HttpStatus.CREATED)
+    public LedgerVoucher fromPosSale(@RequestBody PosSaleVoucherRequest request) {
+        return posSaleVoucherService.postFromPosSale(request);
+    }
+
     /** Auto-post trade sales return → reverse AR/Sales (idempotent by sales return id). */
     @PostMapping("/vouchers/from-sales-return")
     @ResponseStatus(HttpStatus.CREATED)
@@ -178,6 +190,16 @@ public class LedgerController {
     @ResponseStatus(HttpStatus.CREATED)
     public LedgerVoucher fromCollection(@RequestBody CollectionReceiptVoucherRequest request) {
         return collectionReceiptVoucherService.postFromCollection(request);
+    }
+
+    /**
+     * Later collection of a credit POS / OPD / LAB / PHARM bill → same Dr Cash/Bank Cr Debtors.
+     * Idempotent by {@code source_type=POS_COLLECTION} + payment id (not order id).
+     */
+    @PostMapping("/vouchers/from-pos-collection")
+    @ResponseStatus(HttpStatus.CREATED)
+    public LedgerVoucher fromPosCollection(@RequestBody CollectionReceiptVoucherRequest request) {
+        return collectionReceiptVoucherService.postFromPosCollection(request);
     }
 
     /** Auto-post overdue credit interest → Debtors Dr + Interest Income Cr. */
@@ -217,16 +239,18 @@ public class LedgerController {
 
     @GetMapping("/trial-balance")
     public List<TrialBalanceRow> trialBalance(
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate asOf) {
-        return voucherService.trialBalance(asOf);
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate asOf,
+            @RequestParam(required = false) Long branchId) {
+        return voucherService.trialBalance(asOf, branchId);
     }
 
     /** Final accounts — P&amp;L from posted INCOME/EXPENSE movement in period. */
     @GetMapping("/reports/profit-and-loss")
     public ProfitAndLossResponse profitAndLoss(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
-        return finalAccountsService.profitAndLoss(from, to);
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            @RequestParam(required = false) Long branchId) {
+        return finalAccountsService.profitAndLoss(from, to, branchId);
     }
 
     /** Cash movement (1000/1010) vs accrual net profit for the same period. */
@@ -240,8 +264,9 @@ public class LedgerController {
     /** Final accounts — Balance sheet as of date (TB + current-year P&amp;L equity plug). */
     @GetMapping("/reports/balance-sheet")
     public BalanceSheetResponse balanceSheet(
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate asOf) {
-        return finalAccountsService.balanceSheet(asOf);
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate asOf,
+            @RequestParam(required = false) Long branchId) {
+        return finalAccountsService.balanceSheet(asOf, branchId);
     }
 
     /** Cash (1000) or Bank (1010) book with opening + running balance. */

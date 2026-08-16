@@ -9,6 +9,7 @@ public class StockWriteOffVoucherRequest {
     private LocalDate writeOffDate;
     private Double amount;
     private String narration;
+    private Long branchId;
 
     public Long getWriteOffId() { return writeOffId; }
     public void setWriteOffId(Long writeOffId) { this.writeOffId = writeOffId; }
@@ -20,4 +21,6 @@ public class StockWriteOffVoucherRequest {
     public void setAmount(Double amount) { this.amount = amount; }
     public String getNarration() { return narration; }
     public void setNarration(String narration) { this.narration = narration; }
+    public Long getBranchId() { return branchId; }
+    public void setBranchId(Long branchId) { this.branchId = branchId; }
 }

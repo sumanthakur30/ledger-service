@@ -10,6 +10,7 @@ public class CreateVoucherRequest {
     private String narration;
     private String sourceType;
     private Long sourceId;
+    private Long branchId;
     private List<VoucherLineRequest> lines = new ArrayList<>();
 
     public LocalDate getVoucherDate() { return voucherDate; }
@@ -22,6 +23,8 @@ public class CreateVoucherRequest {
     public void setSourceType(String sourceType) { this.sourceType = sourceType; }
     public Long getSourceId() { return sourceId; }
     public void setSourceId(Long sourceId) { this.sourceId = sourceId; }
+    public Long getBranchId() { return branchId; }
+    public void setBranchId(Long branchId) { this.branchId = branchId; }
     public List<VoucherLineRequest> getLines() { return lines; }
     public void setLines(List<VoucherLineRequest> lines) {
         this.lines = lines != null ? lines : new ArrayList<>();

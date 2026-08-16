@@ -3,10 +3,8 @@ package com.shopmanagement.ledgerservice.service;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -28,14 +26,17 @@ public class VoucherService {
     private final LedgerVoucherRepository voucherRepository;
     private final LedgerAccountRepository accountRepository;
     private final PeriodLockService periodLockService;
+    private final FiscalYearService fiscalYearService;
 
     public VoucherService(
             LedgerVoucherRepository voucherRepository,
             LedgerAccountRepository accountRepository,
-            PeriodLockService periodLockService) {
+            PeriodLockService periodLockService,
+            FiscalYearService fiscalYearService) {
         this.voucherRepository = voucherRepository;
         this.accountRepository = accountRepository;
         this.periodLockService = periodLockService;
+        this.fiscalYearService = fiscalYearService;
     }
 
     /** Hardened list — default size 200, max 500 (matches wholesale SO/challan). */
@@ -73,11 +74,13 @@ public class VoucherService {
         LedgerVoucher voucher = new LedgerVoucher();
         voucher.setTenantId(tenantId);
         voucher.setShopId(shopId);
-        voucher.setVoucherNumber("JV-" + System.currentTimeMillis());
+        voucher.setBranchId(TrialBalanceMath.normalize(request.getBranchId()));
         voucher.setVoucherDate(request.getVoucherDate() != null ? request.getVoucherDate() : LocalDate.now());
-        periodLockService.assertOpen(voucher.getVoucherDate());
         voucher.setVoucherType(
                 blank(request.getVoucherType()) ? "JOURNAL" : request.getVoucherType().trim().toUpperCase(Locale.ROOT));
+        periodLockService.assertOpen(voucher.getVoucherDate());
+        voucher.setVoucherNumber(fiscalYearService.nextVoucherNumber(
+                voucher.getVoucherType(), voucher.getVoucherDate()));
         voucher.setStatus("DRAFT");
         voucher.setNarration(trimToNull(request.getNarration()));
         voucher.setSourceType(trimToNull(request.getSourceType()));
@@ -143,54 +146,56 @@ public class VoucherService {
 
     @Transactional(readOnly = true)
     public List<TrialBalanceRow> trialBalance(LocalDate asOf) {
-        LocalDate cutoff = asOf != null ? asOf : LocalDate.now();
-        return accumulatePosted(LocalDate.of(2000, 1, 1), cutoff);
+        return trialBalance(asOf, null);
     }
 
-    /** Posted voucher debit/credit totals for a closed date range (inclusive). */
+    @Transactional(readOnly = true)
+    public List<TrialBalanceRow> trialBalance(LocalDate asOf, Long branchId) {
+        LocalDate cutoff = asOf != null ? asOf : LocalDate.now();
+        return accumulatePosted(LocalDate.of(2000, 1, 1), cutoff, false, branchId);
+    }
+
+    /** Posted voucher debit/credit totals for a closed date range (inclusive). Excludes year-end close. */
     @Transactional(readOnly = true)
     public List<TrialBalanceRow> periodMovement(LocalDate from, LocalDate to) {
-        LocalDate fromDate = from != null ? from : LocalDate.now().withDayOfMonth(1);
-        LocalDate toDate = to != null ? to : LocalDate.now();
-        return accumulatePosted(fromDate, toDate);
+        return periodMovement(from, to, null);
     }
 
-    private List<TrialBalanceRow> accumulatePosted(LocalDate fromDate, LocalDate toDate) {
+    @Transactional(readOnly = true)
+    public List<TrialBalanceRow> periodMovement(LocalDate from, LocalDate to, Long branchId) {
+        LocalDate fromDate = from != null ? from : LocalDate.now().withDayOfMonth(1);
+        LocalDate toDate = to != null ? to : LocalDate.now();
+        return accumulatePosted(fromDate, toDate, true, branchId);
+    }
+
+    private List<TrialBalanceRow> accumulatePosted(
+            LocalDate fromDate, LocalDate toDate, boolean excludeYearEnd, Long branchId) {
         requireManageOrders();
         Long tenantId = requireTenantId();
         String shopId = requireShopId();
         List<LedgerAccount> accounts = accountRepository.findByTenantIdAndShopIdOrderByCodeAsc(tenantId, shopId);
-        Map<Long, TrialBalanceRow> byId = new LinkedHashMap<>();
+        List<TrialBalanceMath.AccountSeed> seeds = new ArrayList<>();
         for (LedgerAccount account : accounts) {
-            byId.put(account.getId(), new TrialBalanceRow(
-                    account.getId(), account.getCode(), account.getName(), account.getAccountType(), 0, 0));
+            seeds.add(new TrialBalanceMath.AccountSeed(
+                    account.getId(), account.getCode(), account.getName(), account.getAccountType()));
         }
         List<LedgerVoucher> vouchers = voucherRepository.search(tenantId, shopId, fromDate, toDate, "");
+        List<TrialBalanceMath.PostedVoucher> posted = new ArrayList<>();
         for (LedgerVoucher voucher : vouchers) {
-            if (!"POSTED".equalsIgnoreCase(voucher.getStatus())) {
-                continue;
-            }
+            List<TrialBalanceMath.Line> lines = new ArrayList<>();
             for (LedgerVoucherLine line : voucher.getLines()) {
-                TrialBalanceRow existing = byId.get(line.getAccountId());
-                if (existing == null) {
-                    continue;
-                }
-                byId.put(line.getAccountId(), new TrialBalanceRow(
-                        existing.accountId(),
-                        existing.code(),
-                        existing.name(),
-                        existing.accountType(),
-                        round2(existing.debit() + safe(line.getDebit())),
-                        round2(existing.credit() + safe(line.getCredit()))));
+                lines.add(new TrialBalanceMath.Line(
+                        line.getAccountId(), safe(line.getDebit()), safe(line.getCredit())));
             }
+            posted.add(new TrialBalanceMath.PostedVoucher(
+                    voucher.getBranchId(),
+                    voucher.getStatus(),
+                    voucher.getVoucherType(),
+                    voucher.getSourceType(),
+                    lines));
         }
-        List<TrialBalanceRow> rows = new ArrayList<>();
-        for (TrialBalanceRow row : byId.values()) {
-            if (row.debit() > 0.009 || row.credit() > 0.009) {
-                rows.add(row);
-            }
-        }
-        return rows;
+        return TrialBalanceMath.accumulate(
+                seeds, posted, TrialBalanceMath.normalize(branchId), excludeYearEnd);
     }
 
     /** Pure helper for unit tests — validates line totals balance. */

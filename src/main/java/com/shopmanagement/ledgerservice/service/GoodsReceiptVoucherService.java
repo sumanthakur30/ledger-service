@@ -92,6 +92,7 @@ public class GoodsReceiptVoucherService {
         LedgerVoucher voucher = new LedgerVoucher();
         voucher.setTenantId(tenantId);
         voucher.setShopId(shopId);
+        voucher.setBranchId(TrialBalanceMath.normalize(request.getBranchId()));
         voucher.setVoucherNumber("GRN-" + request.getGoodsReceiptId());
         voucher.setVoucherDate(request.getReceiptDate() != null ? request.getReceiptDate() : LocalDate.now());
         voucher.setVoucherType("PURCHASE");

@@ -67,6 +67,7 @@ public class CreditInterestVoucherService {
         LedgerVoucher voucher = new LedgerVoucher();
         voucher.setTenantId(tenantId);
         voucher.setShopId(shopId);
+        voucher.setBranchId(TrialBalanceMath.normalize(request.getBranchId()));
         voucher.setVoucherNumber("CI-" + request.getPostingId());
         voucher.setVoucherDate(request.getAsOfDate() != null ? request.getAsOfDate() : LocalDate.now());
         voucher.setVoucherType("JOURNAL");

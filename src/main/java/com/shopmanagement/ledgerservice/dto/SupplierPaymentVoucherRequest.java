@@ -13,6 +13,7 @@ public class SupplierPaymentVoucherRequest {
     private Double amount;
     private String paymentMethod;
     private String narration;
+    private Long branchId;
 
     public Long getPaymentId() { return paymentId; }
     public void setPaymentId(Long paymentId) { this.paymentId = paymentId; }
@@ -32,4 +33,6 @@ public class SupplierPaymentVoucherRequest {
     public void setPaymentMethod(String paymentMethod) { this.paymentMethod = paymentMethod; }
     public String getNarration() { return narration; }
     public void setNarration(String narration) { this.narration = narration; }
+    public Long getBranchId() { return branchId; }
+    public void setBranchId(Long branchId) { this.branchId = branchId; }
 }

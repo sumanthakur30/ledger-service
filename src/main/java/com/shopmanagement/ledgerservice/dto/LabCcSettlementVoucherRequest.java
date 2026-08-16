@@ -13,6 +13,7 @@ public class LabCcSettlementVoucherRequest {
     private Double tdsAmount;
     private Double netAmount;
     private String narration;
+    private Long branchId;
 
     public Long getSettlementRunId() { return settlementRunId; }
     public void setSettlementRunId(Long settlementRunId) { this.settlementRunId = settlementRunId; }
@@ -26,4 +27,6 @@ public class LabCcSettlementVoucherRequest {
     public void setNetAmount(Double netAmount) { this.netAmount = netAmount; }
     public String getNarration() { return narration; }
     public void setNarration(String narration) { this.narration = narration; }
+    public Long getBranchId() { return branchId; }
+    public void setBranchId(Long branchId) { this.branchId = branchId; }
 }

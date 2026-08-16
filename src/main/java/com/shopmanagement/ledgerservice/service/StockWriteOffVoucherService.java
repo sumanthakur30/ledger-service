@@ -74,6 +74,7 @@ public class StockWriteOffVoucherService {
         LedgerVoucher voucher = new LedgerVoucher();
         voucher.setTenantId(tenantId);
         voucher.setShopId(shopId);
+        voucher.setBranchId(TrialBalanceMath.normalize(request.getBranchId()));
         voucher.setVoucherNumber("WO-" + request.getWriteOffId());
         voucher.setVoucherDate(voucherDate);
         voucher.setVoucherType("JOURNAL");

@@ -24,21 +24,28 @@ import com.shopmanagement.ledgerservice.filter.RequestIdFilter;
 public class FinalAccountsService {
 
     private static final String NOTE_PNL =
-            "GL operating P&L from INCOME/EXPENSE accounts. COGS (5300) posts on wholesale invoices when "
+            "GL operating P&L from INCOME/EXPENSE accounts. COGS (5300) posts on wholesale invoices and POS bills when "
                     + "batch cost is known. Purchases still capitalize to Stock (1200) at GRN; stock Δ memo remains "
                     + "for trading context.";
     private static final String NOTE_BS =
-            "Balances from trial balance as of date. Current-year P&L (Indian FY Apr–Mar) "
-                    + "is plugged into equity so the sheet can balance.";
+            "Balances from trial balance as of date. Current-year P&L (shop financial year, default Apr–Mar) "
+                    + "is plugged into equity so the sheet can balance. Closed years use retained earnings (3100).";
 
     private final VoucherService voucherService;
+    private final FiscalYearService fiscalYearService;
 
-    public FinalAccountsService(VoucherService voucherService) {
+    public FinalAccountsService(VoucherService voucherService, FiscalYearService fiscalYearService) {
         this.voucherService = voucherService;
+        this.fiscalYearService = fiscalYearService;
     }
 
     @Transactional(readOnly = true)
     public ProfitAndLossResponse profitAndLoss(LocalDate from, LocalDate to) {
+        return profitAndLoss(from, to, null);
+    }
+
+    @Transactional(readOnly = true)
+    public ProfitAndLossResponse profitAndLoss(LocalDate from, LocalDate to, Long branchId) {
         requireManageOrders();
         LocalDate fromDate = from != null ? from : LocalDate.now().withDayOfMonth(1);
         LocalDate toDate = to != null ? to : LocalDate.now();
@@ -46,7 +53,7 @@ public class FinalAccountsService {
             throw new IllegalArgumentException("fromDate must be on or before toDate");
         }
 
-        List<TrialBalanceRow> movement = voucherService.periodMovement(fromDate, toDate);
+        List<TrialBalanceRow> movement = voucherService.periodMovement(fromDate, toDate, branchId);
         List<FinalAccountLine> income = new ArrayList<>();
         List<FinalAccountLine> expenses = new ArrayList<>();
         double totalIncome = 0;
@@ -72,8 +79,8 @@ public class FinalAccountsService {
         }
 
         LocalDate dayBefore = fromDate.minusDays(1);
-        double openingStock = assetNet(voucherService.trialBalance(dayBefore), "1200");
-        double closingStock = assetNet(voucherService.trialBalance(toDate), "1200");
+        double openingStock = assetNet(voucherService.trialBalance(dayBefore, branchId), "1200");
+        double closingStock = assetNet(voucherService.trialBalance(toDate, branchId), "1200");
         double stockIncrease = round2(closingStock - openingStock);
         double netProfit = round2(totalIncome - totalExpenses);
 
@@ -94,11 +101,18 @@ public class FinalAccountsService {
 
     @Transactional(readOnly = true)
     public BalanceSheetResponse balanceSheet(LocalDate asOf) {
+        return balanceSheet(asOf, null);
+    }
+
+    @Transactional(readOnly = true)
+    public BalanceSheetResponse balanceSheet(LocalDate asOf, Long branchId) {
         requireManageOrders();
         LocalDate cutoff = asOf != null ? asOf : LocalDate.now();
-        LocalDate fyStart = indianFyStart(cutoff);
+        var covering = fiscalYearService.findCovering(cutoff);
+        LocalDate fyStart = covering.map(y -> y.getStartDate()).orElseGet(() -> indianFyStart(cutoff));
+        boolean plugCurrentYear = covering.isEmpty() || !covering.get().isClosed();
 
-        List<TrialBalanceRow> tb = voucherService.trialBalance(cutoff);
+        List<TrialBalanceRow> tb = voucherService.trialBalance(cutoff, branchId);
         List<FinalAccountLine> assets = new ArrayList<>();
         List<FinalAccountLine> liabilities = new ArrayList<>();
         List<FinalAccountLine> equity = new ArrayList<>();
@@ -132,9 +146,9 @@ public class FinalAccountsService {
             }
         }
 
-        ProfitAndLossResponse ytd = profitAndLoss(fyStart, cutoff);
+        ProfitAndLossResponse ytd = profitAndLoss(fyStart, cutoff, branchId);
         double currentYearProfit = ytd.netProfit();
-        if (Math.abs(currentYearProfit) >= 0.009) {
+        if (plugCurrentYear && Math.abs(currentYearProfit) >= 0.009) {
             equity.add(new FinalAccountLine(
                     null,
                     "PL",
