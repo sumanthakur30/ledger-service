@@ -9,7 +9,7 @@ import java.util.Set;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.shopmanagement.ledgerservice.dto.GoodsReceiptVoucherRequest;
+import com.shopmanagement.ledgerservice.dto.ApItcVoucherRequest;
 import com.shopmanagement.ledgerservice.filter.RequestIdFilter;
 import com.shopmanagement.ledgerservice.model.LedgerAccount;
 import com.shopmanagement.ledgerservice.model.LedgerVoucher;
@@ -18,17 +18,15 @@ import com.shopmanagement.ledgerservice.repository.LedgerAccountRepository;
 import com.shopmanagement.ledgerservice.repository.LedgerVoucherRepository;
 
 /**
- * Maps posted trade GRNs to purchase vouchers:
- * Dr Stock / Inventory (1200) = landed stock value; Cr Sundry Creditors (2000).
- * Freight is capitalized into stock (matches LandedCostAllocator) — no separate 5100 line.
- * Stock is ex-tax (PO unit cost). Do not add Input GST here — AP approve posts {@code AP_ITC}.
+ * Posts Input GST from an approved AP invoice. Separate {@code AP_ITC} source so it
+ * never collides with a future full AP voucher or the GRN {@code GOODS_RECEIPT} voucher.
+ * Offset is Cr Creditors for tax only — see {@link ApItcPostingMath}.
  */
 @Service
-public class GoodsReceiptVoucherService {
+public class ApItcVoucherService {
 
-    public static final String SOURCE_GOODS_RECEIPT = "GOODS_RECEIPT";
-    public static final String CODE_STOCK = "1200";
-    public static final String CODE_CREDITORS = "2000";
+    public static final String SOURCE_AP_ITC = "AP_ITC";
+    public static final String CODE_CREDITORS = ApItcPostingMath.CODE_CREDITORS;
 
     private static final Set<String> ALLOWED_ROLES = Set.of(
             "SUPER_ADMIN", "SHOP_OWNER", "TRADE_ACCOUNTANT", "TRADE_PHARMACIST");
@@ -39,7 +37,7 @@ public class GoodsReceiptVoucherService {
     private final LedgerAccountRepository accountRepository;
     private final ChartOfAccountsService chartOfAccountsService;
 
-    public GoodsReceiptVoucherService(
+    public ApItcVoucherService(
             LedgerVoucherRepository voucherRepository,
             LedgerAccountRepository accountRepository,
             ChartOfAccountsService chartOfAccountsService) {
@@ -49,73 +47,65 @@ public class GoodsReceiptVoucherService {
     }
 
     @Transactional
-    public LedgerVoucher postFromGoodsReceipt(GoodsReceiptVoucherRequest request) {
+    public LedgerVoucher postFromApInvoice(ApItcVoucherRequest request) {
         requireTradeAccess();
-        if (request == null || request.getGoodsReceiptId() == null) {
-            throw new IllegalArgumentException("goodsReceiptId is required");
+        if (request == null || request.getApInvoiceId() == null) {
+            throw new IllegalArgumentException("apInvoiceId is required");
         }
         Long tenantId = requireTenantId();
         String shopId = requireShopId();
 
         Optional<LedgerVoucher> existing = voucherRepository.findDetailedBySource(
-                tenantId, shopId, SOURCE_GOODS_RECEIPT, request.getGoodsReceiptId());
+                tenantId, shopId, SOURCE_AP_ITC, request.getApInvoiceId());
         if (existing.isPresent()) {
             return existing.get();
         }
 
-        double stock = round2(safe(request.getStockAmount()));
-        double creditors = round2(safe(request.getCreditorsAmount()) > 0
-                ? safe(request.getCreditorsAmount())
-                : stock);
-        if (stock <= 0 || creditors <= 0) {
-            throw new IllegalArgumentException("GRN stock/creditors amount must be greater than zero");
+        ApItcPostingMath.ItcVoucher itc = ApItcPostingMath.fromDocument(
+                request.getTaxAmount(), request.getCgstAmount(), request.getSgstAmount(), request.getIgstAmount());
+        if (itc.totalDebit() <= 0.009) {
+            throw new IllegalArgumentException("AP ITC tax amount must be greater than zero");
         }
-        // Prefer balancing on creditors when tiny rounding drift exists.
-        if (Math.abs(stock - creditors) > 0.009 && Math.abs(stock - creditors) <= 0.05) {
-            stock = creditors;
-        }
-        if (Math.abs(stock - creditors) > 0.009) {
+        if (!ApItcPostingMath.isBalanced(itc.totalDebit(), itc.totalCredit())) {
             throw new IllegalArgumentException(String.format(
                     Locale.ROOT,
-                    "GRN voucher not balanced: stock %.2f creditors %.2f",
-                    stock,
-                    creditors));
+                    "AP ITC voucher not balanced: debit %.2f credit %.2f",
+                    itc.totalDebit(),
+                    itc.totalCredit()));
         }
 
         chartOfAccountsService.seedDefaults();
-        LedgerAccount inventory = requireAccount(tenantId, shopId, CODE_STOCK);
-        LedgerAccount ap = requireAccount(tenantId, shopId, CODE_CREDITORS);
+        LedgerAccount creditors = requireAccount(tenantId, shopId, CODE_CREDITORS);
 
-        String grnNo = request.getGrnNumber() != null && !request.getGrnNumber().isBlank()
-                ? request.getGrnNumber().trim()
-                : String.valueOf(request.getGoodsReceiptId());
+        String invNo = request.getInvoiceNumber() != null && !request.getInvoiceNumber().isBlank()
+                ? request.getInvoiceNumber().trim()
+                : String.valueOf(request.getApInvoiceId());
 
         LedgerVoucher voucher = new LedgerVoucher();
         voucher.setTenantId(tenantId);
         voucher.setShopId(shopId);
         voucher.setBranchId(TrialBalanceMath.normalize(request.getBranchId()));
-        voucher.setVoucherNumber("GRN-" + request.getGoodsReceiptId());
-        voucher.setVoucherDate(request.getReceiptDate() != null ? request.getReceiptDate() : LocalDate.now());
-        voucher.setVoucherType("PURCHASE");
+        voucher.setVoucherNumber("APITC-" + request.getApInvoiceId());
+        voucher.setVoucherDate(request.getInvoiceDate() != null ? request.getInvoiceDate() : LocalDate.now());
+        voucher.setVoucherType("JOURNAL");
         voucher.setStatus("POSTED");
         voucher.setPostedAt(LocalDateTime.now());
-        voucher.setSourceType(SOURCE_GOODS_RECEIPT);
-        voucher.setSourceId(request.getGoodsReceiptId());
-        double freight = round2(Math.max(0, safe(request.getFreightAmount())));
-        String freightNote = freight > 0.009 ? String.format(Locale.ROOT, " incl. freight %.2f", freight) : "";
+        voucher.setSourceType(SOURCE_AP_ITC);
+        voucher.setSourceId(request.getApInvoiceId());
         voucher.setNarration(
                 request.getNarration() != null && !request.getNarration().isBlank()
                         ? request.getNarration().trim()
-                        : "Goods receipt " + grnNo + freightNote);
+                        : "AP ITC " + invNo);
 
-        voucher.addLine(line(inventory.getId(), stock, 0, "Stock " + grnNo, 1));
-        voucher.addLine(line(ap.getId(), 0, creditors, "AP " + grnNo, 2));
-        voucher.setTotalDebit(stock);
-        voucher.setTotalCredit(creditors);
+        int lineNo = GstLedgerCodes.debitInput(
+                voucher, code -> requireAccount(tenantId, shopId, code), itc.split(), invNo, 1);
+        voucher.addLine(line(creditors.getId(), 0, itc.creditorsDelta(), "AP tax " + invNo, lineNo));
+        voucher.setTotalDebit(itc.totalDebit());
+        voucher.setTotalCredit(itc.totalCredit());
         if (!VoucherService.isBalanced(voucher.getTotalDebit(), voucher.getTotalCredit())) {
             throw new IllegalArgumentException(String.format(
                     Locale.ROOT,
-                    "GRN voucher not balanced: debit %.2f credit %.2f",
+                    "AP ITC voucher not balanced: debit %.2f credit %.2f",
                     voucher.getTotalDebit(),
                     voucher.getTotalCredit()));
         }
@@ -136,19 +126,11 @@ public class GoodsReceiptVoucherService {
     private static LedgerVoucherLine line(Long accountId, double debit, double credit, String narration, int lineNo) {
         LedgerVoucherLine line = new LedgerVoucherLine();
         line.setAccountId(accountId);
-        line.setDebit(round2(debit));
-        line.setCredit(round2(credit));
+        line.setDebit(GstSplit.round2(debit));
+        line.setCredit(GstSplit.round2(credit));
         line.setLineNarration(narration);
         line.setLineNo(lineNo);
         return line;
-    }
-
-    private static double safe(Double value) {
-        return value == null ? 0.0 : value;
-    }
-
-    private static double round2(double value) {
-        return Math.round(value * 100.0) / 100.0;
     }
 
     private Long requireTenantId() {

@@ -69,6 +69,18 @@ public final class GstLedgerCodes {
         return add(voucher, account, INPUT_CREDIT, split.residual, 0, "GST input " + hint, lineNo);
     }
 
+    public static int creditInput(
+            LedgerVoucher voucher,
+            Function<String, LedgerAccount> account,
+            GstSplit split,
+            String hint,
+            int lineNo) {
+        lineNo = add(voucher, account, INPUT_CGST, 0, split.cgst, "Reverse Input CGST " + hint, lineNo);
+        lineNo = add(voucher, account, INPUT_SGST, 0, split.sgst, "Reverse Input SGST " + hint, lineNo);
+        lineNo = add(voucher, account, INPUT_IGST, 0, split.igst, "Reverse Input IGST " + hint, lineNo);
+        return add(voucher, account, INPUT_CREDIT, 0, split.residual, "Reverse GST input " + hint, lineNo);
+    }
+
     private static int add(
             LedgerVoucher voucher,
             Function<String, LedgerAccount> account,

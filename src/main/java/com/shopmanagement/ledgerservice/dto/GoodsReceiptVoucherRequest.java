@@ -2,7 +2,7 @@ package com.shopmanagement.ledgerservice.dto;
 
 import java.time.LocalDate;
 
-/** Trade GRN / goods receipt payload for auto purchase voucher. */
+/** Trade GRN / goods receipt payload for auto purchase voucher. No GST fields — ITC is AP_ITC. */
 public class GoodsReceiptVoucherRequest {
     private Long goodsReceiptId;
     private String grnNumber;

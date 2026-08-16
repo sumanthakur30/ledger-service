@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.shopmanagement.ledgerservice.dto.AccountBookResponse;
+import com.shopmanagement.ledgerservice.dto.ApItcVoucherRequest;
 import com.shopmanagement.ledgerservice.dto.AccountsDashboardResponse;
 import com.shopmanagement.ledgerservice.dto.BalanceSheetResponse;
 import com.shopmanagement.ledgerservice.dto.CashVsProfitResponse;
@@ -28,6 +29,7 @@ import com.shopmanagement.ledgerservice.dto.GoodsReceiptVoucherRequest;
 import com.shopmanagement.ledgerservice.dto.LabCcSettlementVoucherRequest;
 import com.shopmanagement.ledgerservice.dto.PosSaleVoucherRequest;
 import com.shopmanagement.ledgerservice.dto.ProfitAndLossResponse;
+import com.shopmanagement.ledgerservice.dto.PurchaseDebitNoteVoucherRequest;
 import com.shopmanagement.ledgerservice.dto.SalesInvoiceVoucherRequest;
 import com.shopmanagement.ledgerservice.dto.SalesReturnVoucherRequest;
 import com.shopmanagement.ledgerservice.dto.StockWriteOffVoucherRequest;
@@ -37,6 +39,7 @@ import com.shopmanagement.ledgerservice.model.LedgerAccount;
 import com.shopmanagement.ledgerservice.model.LedgerVoucher;
 import com.shopmanagement.ledgerservice.model.LedgerVoucherLine;
 import com.shopmanagement.ledgerservice.service.AccountBookService;
+import com.shopmanagement.ledgerservice.service.ApItcVoucherService;
 import com.shopmanagement.ledgerservice.service.AccountsDashboardService;
 import com.shopmanagement.ledgerservice.service.BankReconciliationService;
 import com.shopmanagement.ledgerservice.service.CashVsProfitService;
@@ -48,6 +51,7 @@ import com.shopmanagement.ledgerservice.service.GoodsReceiptVoucherService;
 import com.shopmanagement.ledgerservice.service.LabCcSettlementVoucherService;
 import com.shopmanagement.ledgerservice.service.PeriodLockService;
 import com.shopmanagement.ledgerservice.service.PosSaleVoucherService;
+import com.shopmanagement.ledgerservice.service.PurchaseDebitNoteVoucherService;
 import com.shopmanagement.ledgerservice.service.SalesInvoiceVoucherService;
 import com.shopmanagement.ledgerservice.service.SalesReturnVoucherService;
 import com.shopmanagement.ledgerservice.service.StockWriteOffVoucherService;
@@ -69,6 +73,8 @@ public class LedgerController {
     private final CollectionReceiptVoucherService collectionReceiptVoucherService;
     private final CreditInterestVoucherService creditInterestVoucherService;
     private final GoodsReceiptVoucherService goodsReceiptVoucherService;
+    private final ApItcVoucherService apItcVoucherService;
+    private final PurchaseDebitNoteVoucherService purchaseDebitNoteVoucherService;
     private final SupplierPaymentVoucherService supplierPaymentVoucherService;
     private final AccountBookService accountBookService;
     private final AccountsDashboardService accountsDashboardService;
@@ -88,6 +94,8 @@ public class LedgerController {
             CollectionReceiptVoucherService collectionReceiptVoucherService,
             CreditInterestVoucherService creditInterestVoucherService,
             GoodsReceiptVoucherService goodsReceiptVoucherService,
+            ApItcVoucherService apItcVoucherService,
+            PurchaseDebitNoteVoucherService purchaseDebitNoteVoucherService,
             SupplierPaymentVoucherService supplierPaymentVoucherService,
             AccountBookService accountBookService,
             AccountsDashboardService accountsDashboardService,
@@ -105,6 +113,8 @@ public class LedgerController {
         this.collectionReceiptVoucherService = collectionReceiptVoucherService;
         this.creditInterestVoucherService = creditInterestVoucherService;
         this.goodsReceiptVoucherService = goodsReceiptVoucherService;
+        this.apItcVoucherService = apItcVoucherService;
+        this.purchaseDebitNoteVoucherService = purchaseDebitNoteVoucherService;
         this.supplierPaymentVoucherService = supplierPaymentVoucherService;
         this.accountBookService = accountBookService;
         this.accountsDashboardService = accountsDashboardService;
@@ -214,6 +224,26 @@ public class LedgerController {
     @ResponseStatus(HttpStatus.CREATED)
     public LedgerVoucher fromGoodsReceipt(@RequestBody GoodsReceiptVoucherRequest request) {
         return goodsReceiptVoucherService.postFromGoodsReceipt(request);
+    }
+
+    /**
+     * AP approve → Input CGST/SGST/IGST Dr + Creditors Cr for document tax only
+     * ({@code source_type=AP_ITC}). Does not touch GRN stock.
+     */
+    @PostMapping("/vouchers/from-ap-itc")
+    @ResponseStatus(HttpStatus.CREATED)
+    public LedgerVoucher fromApItc(@RequestBody ApItcVoucherRequest request) {
+        return apItcVoucherService.postFromApInvoice(request);
+    }
+
+    /**
+     * Purchase return ship → Dr Creditors (goods + tax), Cr Input GST, Cr Stock when
+     * goods go back ({@code source_type=PURCHASE_DEBIT_NOTE}). Does not rewrite GRN / AP_ITC.
+     */
+    @PostMapping("/vouchers/from-purchase-debit-note")
+    @ResponseStatus(HttpStatus.CREATED)
+    public LedgerVoucher fromPurchaseDebitNote(@RequestBody PurchaseDebitNoteVoucherRequest request) {
+        return purchaseDebitNoteVoucherService.postFromPurchaseReturn(request);
     }
 
     /** Auto-post supplier payment → Creditors Dr + Cash/Bank Cr (idempotent by payment id). */
