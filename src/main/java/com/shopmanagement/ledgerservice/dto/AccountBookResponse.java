@@ -17,6 +17,7 @@ public record AccountBookResponse(
         List<AccountBookLine> lines) {
 
     public record AccountBookLine(
+            Long lineId,
             Long voucherId,
             String voucherNumber,
             LocalDate voucherDate,
@@ -26,6 +27,7 @@ public record AccountBookResponse(
             Long sourceId,
             double debit,
             double credit,
-            double runningBalance) {
+            double runningBalance,
+            boolean reconciled) {
     }
 }

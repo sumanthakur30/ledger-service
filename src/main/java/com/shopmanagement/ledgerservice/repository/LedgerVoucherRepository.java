@@ -4,6 +4,8 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -16,6 +18,9 @@ public interface LedgerVoucherRepository extends JpaRepository<LedgerVoucher, Lo
     Optional<LedgerVoucher> findByTenantIdAndShopIdAndSourceTypeAndSourceId(
             Long tenantId, String shopId, String sourceType, Long sourceId);
 
+    /**
+     * Full-range search with lines (reports / trial balance). Prefer {@link #searchLimited} for UI lists.
+     */
     @Query("""
             SELECT DISTINCT v FROM LedgerVoucher v
             LEFT JOIN FETCH v.lines
@@ -30,6 +35,25 @@ public interface LedgerVoucherRepository extends JpaRepository<LedgerVoucher, Lo
             @Param("fromDate") LocalDate fromDate,
             @Param("toDate") LocalDate toDate,
             @Param("voucherType") String voucherType);
+
+    /**
+     * DB-limited list (EntityGraph, no JOIN FETCH) so {@link Pageable} applies in SQL, not in memory.
+     */
+    @EntityGraph(attributePaths = "lines", type = EntityGraph.EntityGraphType.LOAD)
+    @Query("""
+            SELECT v FROM LedgerVoucher v
+            WHERE v.tenantId = :tenantId AND v.shopId = :shopId
+              AND v.voucherDate >= :fromDate AND v.voucherDate <= :toDate
+              AND (:voucherType = '' OR v.voucherType = :voucherType)
+            ORDER BY v.voucherDate DESC, v.id DESC
+            """)
+    List<LedgerVoucher> searchLimited(
+            @Param("tenantId") Long tenantId,
+            @Param("shopId") String shopId,
+            @Param("fromDate") LocalDate fromDate,
+            @Param("toDate") LocalDate toDate,
+            @Param("voucherType") String voucherType,
+            Pageable pageable);
 
     @Query("""
             SELECT v FROM LedgerVoucher v

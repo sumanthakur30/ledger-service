@@ -33,6 +33,10 @@ public class LedgerVoucher {
     @Column(name = "shop_id", nullable = false, length = 64)
     private String shopId;
 
+    /** Null = shop-level / unassigned; included in consolidated TB. */
+    @Column(name = "branch_id")
+    private Long branchId;
+
     @Column(name = "voucher_number", nullable = false, length = 50)
     private String voucherNumber;
 
@@ -97,6 +101,8 @@ public class LedgerVoucher {
     public void setTenantId(Long tenantId) { this.tenantId = tenantId; }
     public String getShopId() { return shopId; }
     public void setShopId(String shopId) { this.shopId = shopId; }
+    public Long getBranchId() { return branchId; }
+    public void setBranchId(Long branchId) { this.branchId = branchId; }
     public String getVoucherNumber() { return voucherNumber; }
     public void setVoucherNumber(String voucherNumber) { this.voucherNumber = voucherNumber; }
     public LocalDate getVoucherDate() { return voucherDate; }

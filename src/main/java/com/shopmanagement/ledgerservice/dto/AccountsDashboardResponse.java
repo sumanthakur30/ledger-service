@@ -10,10 +10,14 @@ public record AccountsDashboardResponse(
         double periodDebitTotal,
         double periodCreditTotal,
         double debtorsBalance,
+        double creditorsBalance,
+        double inventoryBalance,
         double salesCreditBalance,
         double gstPayableBalance,
         List<TrialBalanceRow> trialBalanceHighlight,
-        List<RecentVoucherRow> recentVouchers) {
+        List<RecentVoucherRow> recentVouchers,
+        double opexMtd,
+        double otherIncomeMtd) {
 
     public record RecentVoucherRow(
             Long id,

@@ -21,6 +21,7 @@ import com.shopmanagement.ledgerservice.repository.LedgerVoucherRepository;
  * Maps posted trade GRNs to purchase vouchers:
  * Dr Stock / Inventory (1200) = landed stock value; Cr Sundry Creditors (2000).
  * Freight is capitalized into stock (matches LandedCostAllocator) — no separate 5100 line.
+ * Stock is ex-tax (PO unit cost). Do not add Input GST here — AP approve posts {@code AP_ITC}.
  */
 @Service
 public class GoodsReceiptVoucherService {
@@ -92,6 +93,7 @@ public class GoodsReceiptVoucherService {
         LedgerVoucher voucher = new LedgerVoucher();
         voucher.setTenantId(tenantId);
         voucher.setShopId(shopId);
+        voucher.setBranchId(TrialBalanceMath.normalize(request.getBranchId()));
         voucher.setVoucherNumber("GRN-" + request.getGoodsReceiptId());
         voucher.setVoucherDate(request.getReceiptDate() != null ? request.getReceiptDate() : LocalDate.now());
         voucher.setVoucherType("PURCHASE");

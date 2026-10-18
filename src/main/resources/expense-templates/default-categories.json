@@ -1,0 +1,20 @@
+{
+  "expenseCategories": [
+    { "code": "RENT", "name": "Rent", "ledgerAccountCode": "5600", "ledgerAccountName": "Rent expense", "sortOrder": 10 },
+    { "code": "UTILITIES", "name": "Utilities", "ledgerAccountCode": "5610", "ledgerAccountName": "Utilities expense", "sortOrder": 20 },
+    { "code": "SALARIES", "name": "Salaries", "ledgerAccountCode": "5620", "ledgerAccountName": "Salaries expense", "sortOrder": 30 },
+    { "code": "MARKETING", "name": "Marketing", "ledgerAccountCode": "5630", "ledgerAccountName": "Marketing expense", "sortOrder": 40 },
+    { "code": "TRANSPORT", "name": "Transport", "ledgerAccountCode": "5640", "ledgerAccountName": "Transport expense", "sortOrder": 50 },
+    { "code": "MAINTENANCE", "name": "Maintenance", "ledgerAccountCode": "5650", "ledgerAccountName": "Maintenance expense", "sortOrder": 60 },
+    { "code": "PROF_FEES", "name": "Professional fees", "ledgerAccountCode": "5660", "ledgerAccountName": "Professional fees", "sortOrder": 70 },
+    { "code": "BANK_CHARGES", "name": "Bank charges", "ledgerAccountCode": "5670", "ledgerAccountName": "Bank charges", "sortOrder": 80 },
+    { "code": "MISC", "name": "Miscellaneous", "ledgerAccountCode": "5690", "ledgerAccountName": "Miscellaneous expense", "sortOrder": 90 }
+  ],
+  "incomeTypes": [
+    { "code": "INTEREST", "name": "Interest income", "ledgerAccountCode": "4100", "ledgerAccountName": "Interest Income", "sortOrder": 10 },
+    { "code": "COMMISSION", "name": "Commission income", "ledgerAccountCode": "4210", "ledgerAccountName": "Commission income", "sortOrder": 20 },
+    { "code": "SCRAP", "name": "Scrap / asset sale", "ledgerAccountCode": "4220", "ledgerAccountName": "Scrap / asset sale income", "sortOrder": 30 },
+    { "code": "RENTAL", "name": "Rental income", "ledgerAccountCode": "4230", "ledgerAccountName": "Rental income", "sortOrder": 40 },
+    { "code": "MISC_INCOME", "name": "Miscellaneous income", "ledgerAccountCode": "4200", "ledgerAccountName": "Miscellaneous income", "sortOrder": 50 }
+  ]
+}

@@ -2,8 +2,12 @@ package com.shopmanagement.ledgerservice;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
+
+import com.shopmanagement.ledgerservice.config.ExpenseModuleProperties;
 
 @SpringBootApplication
+@EnableConfigurationProperties(ExpenseModuleProperties.class)
 public class LedgerServiceApplication {
 
     public static void main(String[] args) {

@@ -2,6 +2,7 @@ package com.shopmanagement.ledgerservice.service;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 
@@ -17,16 +18,21 @@ import com.shopmanagement.ledgerservice.repository.LedgerAccountRepository;
 import com.shopmanagement.ledgerservice.repository.LedgerVoucherRepository;
 
 /**
- * Maps trade AR collections to posted receipt vouchers:
- * Dr Cash (1000) or Bank (1010); Cr Debtors (1100).
+ * Maps trade AR collections (wholesale SI or later POS/department collection) to posted receipts:
+ * Dr Cash (1000) or Bank (1010); Cr Debtors (1100). No GST rewrite of the original sale.
  */
 @Service
 public class CollectionReceiptVoucherService {
 
     public static final String SOURCE_COLLECTION = "COLLECTION";
-    public static final String CODE_CASH = "1000";
-    public static final String CODE_BANK = "1010";
-    public static final String CODE_DEBTORS = "1100";
+    public static final String SOURCE_POS_COLLECTION = "POS_COLLECTION";
+    public static final String CODE_CASH = CollectionReceiptPostingMath.CODE_CASH;
+    public static final String CODE_BANK = CollectionReceiptPostingMath.CODE_BANK;
+    public static final String CODE_DEBTORS = CollectionReceiptPostingMath.CODE_DEBTORS;
+
+    private static final List<String> POS_POST_PERMISSIONS = List.of(
+            "MANAGE_ORDERS", "MANAGE_LAB_ORDERS", "MANAGE_APPOINTMENTS", "DISPENSE_MEDICINES",
+            "PROCUREMENT_FINANCE");
 
     private final LedgerVoucherRepository voucherRepository;
     private final LedgerAccountRepository accountRepository;
@@ -43,7 +49,22 @@ public class CollectionReceiptVoucherService {
 
     @Transactional
     public LedgerVoucher postFromCollection(CollectionReceiptVoucherRequest request) {
-        requireManageOrders();
+        return postReceipt(request, SOURCE_COLLECTION, false);
+    }
+
+    /** Later collection of a credit POS / OPD / LAB / PHARM bill. Same engine; distinct source_type. */
+    @Transactional
+    public LedgerVoucher postFromPosCollection(CollectionReceiptVoucherRequest request) {
+        return postReceipt(request, SOURCE_POS_COLLECTION, true);
+    }
+
+    private LedgerVoucher postReceipt(
+            CollectionReceiptVoucherRequest request, String sourceType, boolean posCollection) {
+        if (posCollection) {
+            requirePosCollectionPermission();
+        } else {
+            requireManageOrders();
+        }
         if (request == null || request.getPaymentId() == null) {
             throw new IllegalArgumentException("paymentId is required");
         }
@@ -51,12 +72,14 @@ public class CollectionReceiptVoucherService {
         String shopId = requireShopId();
 
         Optional<LedgerVoucher> existing = voucherRepository.findDetailedBySource(
-                tenantId, shopId, SOURCE_COLLECTION, request.getPaymentId());
+                tenantId, shopId, sourceType, request.getPaymentId());
         if (existing.isPresent()) {
             return existing.get();
         }
 
-        double amount = round2(safe(request.getAmount()));
+        CollectionReceiptPostingMath.ReceiptSplit split =
+                CollectionReceiptPostingMath.split(safe(request.getAmount()), request.getPaymentMethod());
+        double amount = split.amount();
         if (amount <= 0) {
             throw new IllegalArgumentException("Collection amount must be greater than zero");
         }
@@ -65,30 +88,29 @@ public class CollectionReceiptVoucherService {
         String method = request.getPaymentMethod() != null
                 ? request.getPaymentMethod().trim().toUpperCase(Locale.ROOT)
                 : "CASH";
-        String cashBankCode = "CASH".equals(method) ? CODE_CASH : CODE_BANK;
-        LedgerAccount cashOrBank = requireAccount(tenantId, shopId, cashBankCode);
+        LedgerAccount cashOrBank = requireAccount(tenantId, shopId, split.cashBankCode());
         LedgerAccount debtors = requireAccount(tenantId, shopId, CODE_DEBTORS);
 
-        String invNo = request.getInvoiceNumber() != null && !request.getInvoiceNumber().isBlank()
-                ? request.getInvoiceNumber().trim()
-                : (request.getInvoiceId() != null ? String.valueOf(request.getInvoiceId()) : "");
-        String receiptLabel = "RC-" + request.getPaymentId();
+        String invNo = documentLabel(request);
+        String prefix = posCollection ? "POSRC-" : "RC-";
+        String receiptLabel = prefix + request.getPaymentId();
 
         LedgerVoucher voucher = new LedgerVoucher();
         voucher.setTenantId(tenantId);
         voucher.setShopId(shopId);
+        voucher.setBranchId(TrialBalanceMath.normalize(request.getBranchId()));
         voucher.setVoucherNumber(receiptLabel);
         voucher.setVoucherDate(request.getPaymentDate() != null ? request.getPaymentDate() : LocalDate.now());
         voucher.setVoucherType("RECEIPT");
         voucher.setStatus("POSTED");
         voucher.setPostedAt(LocalDateTime.now());
-        voucher.setSourceType(SOURCE_COLLECTION);
+        voucher.setSourceType(sourceType);
         voucher.setSourceId(request.getPaymentId());
         voucher.setNarration(
                 request.getNarration() != null && !request.getNarration().isBlank()
                         ? request.getNarration().trim()
-                        : "Collection receipt " + receiptLabel
-                                + (invNo.isEmpty() ? "" : " for invoice " + invNo)
+                        : (posCollection ? "POS collection receipt " : "Collection receipt ") + receiptLabel
+                                + (invNo.isEmpty() ? "" : " for " + invNo)
                                 + " (" + method + ")");
 
         String lineHint = invNo.isEmpty() ? receiptLabel : invNo;
@@ -96,7 +118,7 @@ public class CollectionReceiptVoucherService {
         voucher.addLine(line(debtors.getId(), 0, amount, "AR clear " + lineHint, 2));
         voucher.setTotalDebit(amount);
         voucher.setTotalCredit(amount);
-        if (!VoucherService.isBalanced(voucher.getTotalDebit(), voucher.getTotalCredit())) {
+        if (!CollectionReceiptPostingMath.isBalanced(voucher.getTotalDebit(), voucher.getTotalCredit())) {
             throw new IllegalArgumentException(String.format(
                     Locale.ROOT,
                     "Collection receipt voucher not balanced: debit %.2f credit %.2f",
@@ -108,6 +130,22 @@ public class CollectionReceiptVoucherService {
         return voucherRepository
                 .findDetailedByIdAndTenantIdAndShopId(saved.getId(), tenantId, shopId)
                 .orElse(saved);
+    }
+
+    private static String documentLabel(CollectionReceiptVoucherRequest request) {
+        if (request.getOrderNumber() != null && !request.getOrderNumber().isBlank()) {
+            return request.getOrderNumber().trim();
+        }
+        if (request.getInvoiceNumber() != null && !request.getInvoiceNumber().isBlank()) {
+            return request.getInvoiceNumber().trim();
+        }
+        if (request.getOrderId() != null) {
+            return String.valueOf(request.getOrderId());
+        }
+        if (request.getInvoiceId() != null) {
+            return String.valueOf(request.getInvoiceId());
+        }
+        return "";
     }
 
     private LedgerAccount requireAccount(Long tenantId, String shopId, String code) {
@@ -160,5 +198,18 @@ public class CollectionReceiptVoucherService {
                 && !RequestIdFilter.getCurrentPermissions().contains("PROCUREMENT_FINANCE")) {
             throw new SecurityException("Forbidden: missing permission MANAGE_ORDERS");
         }
+    }
+
+    private void requirePosCollectionPermission() {
+        String role = RequestIdFilter.getCurrentRole();
+        if ("SUPER_ADMIN".equals(role) || "SHOP_OWNER".equals(role) || "TRADE_ACCOUNTANT".equals(role)) {
+            return;
+        }
+        for (String permission : POS_POST_PERMISSIONS) {
+            if (RequestIdFilter.getCurrentPermissions().contains(permission)) {
+                return;
+            }
+        }
+        throw new SecurityException("Forbidden: missing permission to post POS collection receipts");
     }
 }

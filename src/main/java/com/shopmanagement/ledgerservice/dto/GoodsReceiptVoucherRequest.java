@@ -2,7 +2,7 @@ package com.shopmanagement.ledgerservice.dto;
 
 import java.time.LocalDate;
 
-/** Trade GRN / goods receipt payload for auto purchase voucher. */
+/** Trade GRN / goods receipt payload for auto purchase voucher. No GST fields — ITC is AP_ITC. */
 public class GoodsReceiptVoucherRequest {
     private Long goodsReceiptId;
     private String grnNumber;
@@ -14,6 +14,7 @@ public class GoodsReceiptVoucherRequest {
     private Double creditorsAmount;
     private Double freightAmount;
     private String narration;
+    private Long branchId;
 
     public Long getGoodsReceiptId() { return goodsReceiptId; }
     public void setGoodsReceiptId(Long goodsReceiptId) { this.goodsReceiptId = goodsReceiptId; }
@@ -31,4 +32,6 @@ public class GoodsReceiptVoucherRequest {
     public void setFreightAmount(Double freightAmount) { this.freightAmount = freightAmount; }
     public String getNarration() { return narration; }
     public void setNarration(String narration) { this.narration = narration; }
+    public Long getBranchId() { return branchId; }
+    public void setBranchId(Long branchId) { this.branchId = branchId; }
 }

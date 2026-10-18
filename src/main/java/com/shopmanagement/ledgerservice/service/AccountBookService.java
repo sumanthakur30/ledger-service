@@ -96,6 +96,7 @@ public class AccountBookService {
                     narr = voucher.getNarration();
                 }
                 lines.add(new AccountBookLine(
+                        line.getId(),
                         voucher.getId(),
                         voucher.getVoucherNumber(),
                         voucher.getVoucherDate(),
@@ -105,7 +106,8 @@ public class AccountBookService {
                         voucher.getSourceId(),
                         debit,
                         credit,
-                        running));
+                        running,
+                        Boolean.TRUE.equals(line.getReconciled())));
             }
         }
 
@@ -170,7 +172,8 @@ public class AccountBookService {
             }
         }
         var perms = RequestIdFilter.getCurrentPermissions();
-        if (perms.contains("MANAGE_ORDERS") || perms.contains("PROCUREMENT_FINANCE")) {
+        if (perms.contains("MANAGE_ORDERS") || perms.contains("PROCUREMENT_FINANCE")
+                || perms.contains("MANAGE_FINANCE")) {
             return;
         }
         throw new SecurityException("Forbidden: missing permission MANAGE_ORDERS");

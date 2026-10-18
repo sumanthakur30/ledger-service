@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -14,8 +15,10 @@ import com.shopmanagement.ledgerservice.dto.TrialBalanceRow;
 import com.shopmanagement.ledgerservice.filter.RequestIdFilter;
 import com.shopmanagement.ledgerservice.model.LedgerAccount;
 import com.shopmanagement.ledgerservice.model.LedgerVoucher;
+import com.shopmanagement.ledgerservice.repository.ExpenseEntryRepository;
 import com.shopmanagement.ledgerservice.repository.LedgerAccountRepository;
 import com.shopmanagement.ledgerservice.repository.LedgerVoucherRepository;
+import com.shopmanagement.ledgerservice.repository.OtherIncomeEntryRepository;
 
 @Service
 public class AccountsDashboardService {
@@ -23,14 +26,20 @@ public class AccountsDashboardService {
     private final LedgerAccountRepository accountRepository;
     private final LedgerVoucherRepository voucherRepository;
     private final VoucherService voucherService;
+    private final ExpenseEntryRepository expenseEntryRepository;
+    private final OtherIncomeEntryRepository otherIncomeEntryRepository;
 
     public AccountsDashboardService(
             LedgerAccountRepository accountRepository,
             LedgerVoucherRepository voucherRepository,
-            VoucherService voucherService) {
+            VoucherService voucherService,
+            ExpenseEntryRepository expenseEntryRepository,
+            OtherIncomeEntryRepository otherIncomeEntryRepository) {
         this.accountRepository = accountRepository;
         this.voucherRepository = voucherRepository;
         this.voucherService = voucherService;
+        this.expenseEntryRepository = expenseEntryRepository;
+        this.otherIncomeEntryRepository = otherIncomeEntryRepository;
     }
 
     @Transactional(readOnly = true)
@@ -44,8 +53,13 @@ public class AccountsDashboardService {
         List<LedgerAccount> accounts = accountRepository.findByTenantIdAndShopIdOrderByCodeAsc(tenantId, shopId);
         List<LedgerVoucher> periodVouchers =
                 voucherRepository.search(tenantId, shopId, fromDate, toDate, "");
-        List<LedgerVoucher> allRecent =
-                voucherRepository.search(tenantId, shopId, LocalDate.of(2000, 1, 1), LocalDate.of(2100, 12, 31), "");
+        List<LedgerVoucher> allRecent = voucherRepository.searchLimited(
+                tenantId,
+                shopId,
+                LocalDate.of(2000, 1, 1),
+                LocalDate.of(2100, 12, 31),
+                "",
+                Pageable.ofSize(10));
 
         int posted = 0;
         int draft = 0;
@@ -64,6 +78,8 @@ public class AccountsDashboardService {
 
         List<TrialBalanceRow> tb = voucherService.trialBalance(toDate);
         double debtors = 0;
+        double creditors = 0;
+        double inventory = 0;
         double sales = 0;
         double gst = 0;
         List<TrialBalanceRow> highlight = new ArrayList<>();
@@ -73,10 +89,14 @@ public class AccountsDashboardService {
             double netCr = Math.max(0, round2(row.credit() - row.debit()));
             if ("1100".equals(code)) {
                 debtors = netDr;
+            } else if ("2000".equals(code)) {
+                creditors = netCr;
+            } else if ("1200".equals(code)) {
+                inventory = netDr;
             } else if ("4000".equals(code)) {
                 sales = netCr;
-            } else if ("2100".equals(code)) {
-                gst = netCr;
+            } else if (GstLedgerCodes.isOutput(code)) {
+                gst = round2(gst + netCr);
             }
             if (highlight.size() < 8 && (row.debit() > 0.009 || row.credit() > 0.009)) {
                 highlight.add(row);
@@ -85,9 +105,6 @@ public class AccountsDashboardService {
 
         List<RecentVoucherRow> recent = new ArrayList<>();
         for (LedgerVoucher v : allRecent) {
-            if (recent.size() >= 10) {
-                break;
-            }
             recent.add(new RecentVoucherRow(
                     v.getId(),
                     v.getVoucherNumber(),
@@ -99,6 +116,9 @@ public class AccountsDashboardService {
                     v.getVoucherDate() != null ? v.getVoucherDate().toString() : null));
         }
 
+        double opexMtd = round2(nz(expenseEntryRepository.sumPostedAmount(tenantId, shopId, fromDate, toDate)));
+        double otherIncomeMtd = round2(nz(otherIncomeEntryRepository.sumPostedAmount(tenantId, shopId, fromDate, toDate)));
+
         return new AccountsDashboardResponse(
                 accounts.size(),
                 posted,
@@ -106,14 +126,22 @@ public class AccountsDashboardService {
                 round2(periodDebit),
                 round2(periodCredit),
                 round2(debtors),
+                round2(creditors),
+                round2(inventory),
                 round2(sales),
                 round2(gst),
                 highlight,
-                recent);
+                recent,
+                opexMtd,
+                otherIncomeMtd);
     }
 
     private static double safe(Double value) {
         return value == null ? 0.0 : value;
+    }
+
+    private static double nz(java.math.BigDecimal value) {
+        return value == null ? 0.0 : value.doubleValue();
     }
 
     private static double round2(double value) {
