@@ -26,6 +26,7 @@ import com.shopmanagement.ledgerservice.dto.CreateAccountRequest;
 import com.shopmanagement.ledgerservice.dto.CreateVoucherRequest;
 import com.shopmanagement.ledgerservice.dto.CreditInterestVoucherRequest;
 import com.shopmanagement.ledgerservice.dto.GoodsReceiptVoucherRequest;
+import com.shopmanagement.ledgerservice.dto.ItcReversalVoucherRequest;
 import com.shopmanagement.ledgerservice.dto.LabCcSettlementVoucherRequest;
 import com.shopmanagement.ledgerservice.dto.PosSaleVoucherRequest;
 import com.shopmanagement.ledgerservice.dto.ProfitAndLossResponse;
@@ -54,6 +55,7 @@ import com.shopmanagement.ledgerservice.service.PosSaleVoucherService;
 import com.shopmanagement.ledgerservice.service.PurchaseDebitNoteVoucherService;
 import com.shopmanagement.ledgerservice.service.SalesInvoiceVoucherService;
 import com.shopmanagement.ledgerservice.service.SalesReturnVoucherService;
+import com.shopmanagement.ledgerservice.service.ItcReversalVoucherService;
 import com.shopmanagement.ledgerservice.service.StockWriteOffVoucherService;
 import com.shopmanagement.ledgerservice.service.SupplierPaymentVoucherService;
 import com.shopmanagement.ledgerservice.service.VoucherService;
@@ -80,6 +82,7 @@ public class LedgerController {
     private final AccountsDashboardService accountsDashboardService;
     private final FinalAccountsService finalAccountsService;
     private final StockWriteOffVoucherService stockWriteOffVoucherService;
+    private final ItcReversalVoucherService itcReversalVoucherService;
     private final LabCcSettlementVoucherService labCcSettlementVoucherService;
     private final PeriodLockService periodLockService;
     private final BankReconciliationService bankReconciliationService;
@@ -101,6 +104,7 @@ public class LedgerController {
             AccountsDashboardService accountsDashboardService,
             FinalAccountsService finalAccountsService,
             StockWriteOffVoucherService stockWriteOffVoucherService,
+            ItcReversalVoucherService itcReversalVoucherService,
             LabCcSettlementVoucherService labCcSettlementVoucherService,
             PeriodLockService periodLockService,
             BankReconciliationService bankReconciliationService,
@@ -120,6 +124,7 @@ public class LedgerController {
         this.accountsDashboardService = accountsDashboardService;
         this.finalAccountsService = finalAccountsService;
         this.stockWriteOffVoucherService = stockWriteOffVoucherService;
+        this.itcReversalVoucherService = itcReversalVoucherService;
         this.labCcSettlementVoucherService = labCcSettlementVoucherService;
         this.periodLockService = periodLockService;
         this.bankReconciliationService = bankReconciliationService;
@@ -258,6 +263,13 @@ public class LedgerController {
     @ResponseStatus(HttpStatus.CREATED)
     public LedgerVoucher fromStockWriteOff(@RequestBody StockWriteOffVoucherRequest request) {
         return stockWriteOffVoucherService.postFromStockWriteOff(request);
+    }
+
+    /** Promotion cost and section 17(5)(h) ITC reversal. Idempotent by source id. */
+    @PostMapping("/vouchers/from-itc-reversal")
+    @ResponseStatus(HttpStatus.CREATED)
+    public LedgerVoucher fromItcReversal(@RequestBody ItcReversalVoucherRequest request) {
+        return itcReversalVoucherService.post(request);
     }
 
     /** Path-lab CC settlement → Dr 5500 / Cr 2000 (+ Cr 2300 TDS) — idempotent by settlement run id. */

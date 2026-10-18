@@ -38,6 +38,7 @@ public class ChartOfAccountsService {
             {"5300", "Cost of goods sold", "EXPENSE", ""},
             {"5400", "Stock write-off / Dump-Brk-Exp", "EXPENSE", ""},
             {"5500", "Collection centre / outsource expense", "EXPENSE", ""},
+            {"5600", "Sales promotion / free samples", "EXPENSE", ""},
             {"2300", "TDS Payable", "LIABILITY", ""}
     };
 
